@@ -24,6 +24,21 @@ GBA.ts
 * 0xac ~ 0xaf: code 
 * 0xb0 ~ 0xb1: marker
 
+## 按鍵對照
+
+* A	Z
+* B	X
+* L	A
+* R	S
+* Start	Enter
+* Select	\
+
+## ROM 載入流程
+
+* (gba.js)GameBoyAdvance.loadRomFromFile
+* (gba.js)GameBoyAdvance.setRom
+* (mmu.js)mmu.loadRom
+  
 ## 相關專案
 
 * [GitHub - mgba-emu/mgba: mGBA Game Boy Advance Emulator](https://github.com/mgba-emu/mgba)
