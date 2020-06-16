@@ -1,0 +1,1 @@
+export const SHIFT_32 = 1/0x100000000;
