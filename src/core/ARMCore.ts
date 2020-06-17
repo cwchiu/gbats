@@ -1,13 +1,16 @@
-import {IMMU, IIRQ, IPage, ICompilerArm, ICompilerThumb, IOp, OpExecMode} from "../interfaces.ts";
+import {IGBAMMU, IIRQ, ICPU, IPage, ICompilerArm, ICompilerThumb, IOp, OpExecMode} from "../interfaces.ts";
 import ARMCoreArm from "./ARMCoreArm.ts";
 import ARMCoreThumb from "./ARMCoreThumb.ts";
 
-export default class ARMCore {
+/**
+ * ARM 核心
+ */
+export default class ARMCore implements ICPU{
     SP:number = 13
 	LR:number = 14
     PC:number = 15
     
-    mmu: IMMU
+    mmu: IGBAMMU 
     irq: IIRQ
     page: IPage | null = null
     conds: Array<unknown> = []
@@ -46,12 +49,12 @@ export default class ARMCore {
     execMode:OpExecMode = OpExecMode.ARM
     instructionWidth: number = 0
     mode: number = 0
-    cpsrI: boolean = false
-    cpsrF: boolean = false
-    cpsrV: boolean = false
-    cpsrC: boolean = false
-    cpsrZ: boolean = false
-    cpsrN: boolean = false
+    cpsrI: number = 0
+    cpsrF: number = 0
+    cpsrV: number = 0
+    cpsrC: number = 0
+    cpsrZ: number = 0
+    cpsrN: number = 0
     bankedRegisters: Int32Array[] = []
     spsr: number = 0
     cycles: number = 0
@@ -83,13 +86,12 @@ export default class ARMCore {
     
         this.mode = this.MODE_SYSTEM;
     
-        this.cpsrI = false;
-        this.cpsrF = false;
-    
-        this.cpsrV = false;
-        this.cpsrC = false;
-        this.cpsrZ = false;
-        this.cpsrN = false;
+        this.cpsrI = 0;
+        this.cpsrF = 0;    
+        this.cpsrV = 0;
+        this.cpsrC = 0;
+        this.cpsrZ = 0;
+        this.cpsrN = 0;
     
         this.bankedRegisters = [
             new Int32Array(7),

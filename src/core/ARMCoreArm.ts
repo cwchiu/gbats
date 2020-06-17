@@ -1,4 +1,4 @@
-import {ICompilerArm, ICPU, ICPUOperator, IConditionOperator, ICPUAddress, IInstruction, ICPUAddress2} from "../interfaces.ts";
+import {ICompilerArm, ICPU, ICPUOperator, IConditionOperator, ICPUAddress, IInstruction, ICPUAddress2, ARMMode} from "../interfaces.ts";
 import {SHIFT_32} from "../constants.ts";
 
 interface  ImmediateAddress {
@@ -931,7 +931,7 @@ export default class ARMCoreArm implements ICompilerArm {
             let addr: number = address(false);
             let total: number = 0;
             const mode = cpu.mode;
-            cpu.switchMode(cpu.MODE_SYSTEM);
+            cpu.switchMode(ARMMode.System);
             let m, i;
             for (m = rs, i = 0; m; m >>= 1, ++i) {
                 if (m & 1) {
@@ -1219,7 +1219,7 @@ export default class ARMCoreArm implements ICompilerArm {
                     cpu.cpsrC = operand & 0x20000000;
                     cpu.cpsrV = operand & 0x10000000;
                 }
-                if (cpu.mode != cpu.MODE_USER && (mask & cpu.PRIV_MASK)) {
+                if (cpu.mode != ARMMode.User && (mask & cpu.PRIV_MASK)) {
                     cpu.switchMode((operand & 0x0000000F) | 0x00000010);
                     cpu.cpsrI = operand & 0x00000080;
                     cpu.cpsrF = operand & 0x00000040;
@@ -1637,7 +1637,7 @@ export default class ARMCoreArm implements ICompilerArm {
             let addr = address(true);
             let total = 0;
             let m, i;
-            cpu.switchMode(cpu.MODE_SYSTEM);
+            cpu.switchMode(ARMMode.System);
             for (m = rs, i = 0; m; m >>= 1, ++i) {
                 if (m & 1) {
                     mmu.store32(addr, gprs[i]);
@@ -1714,7 +1714,7 @@ export default class ARMCoreArm implements ICompilerArm {
     }
     
     /**
-     * 
+     * SUB
      * @param rd 
      * @param rn 
      * @param shiftOp 
@@ -1806,7 +1806,11 @@ export default class ARMCoreArm implements ICompilerArm {
     }
     
     /**
-     * 
+     * SWPB
+     * @param rd 
+     * @param rn 
+     * @param rm 
+     * @param condOp 
      */
     constructSWPB(rd: number, rn: number, rm: number, condOp: IConditionOperator): IInstruction {
         const cpu = this.cpu;
