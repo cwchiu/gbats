@@ -33,6 +33,11 @@ GBA.ts
 * Start	Enter
 * Select	\
 
+## GBA 初始化
+
+* GameBoyAdvance.setCanvas() 關聯 canvas 做為顯示區域
+* GameBoyAdvance.(setBios) 將 bios.bin 載入
+
 ## ROM 載入流程
 
 * (gba.js)GameBoyAdvance.loadRomFromFile
