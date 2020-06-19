@@ -41,8 +41,9 @@ GBA.ts
 ## ROM 載入流程
 
 * (gba.js)GameBoyAdvance.loadRomFromFile
-* (gba.js)GameBoyAdvance.setRom
-* (mmu.js)mmu.loadRom
+  * (gba.js)GameBoyAdvance.setRom
+    * (gba.js)GameBoyAdvance.reset() ; 所有元件重置
+    * (mmu.js)mmu.loadRom
   
 ## 相關專案
 
