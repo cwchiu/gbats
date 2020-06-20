@@ -1,4 +1,4 @@
-import {ICompilerThumb, ICPU, ICPUOperator, IConditionOperator, ICPUAddress, IInstruction, ICPUAddress2} from "../interfaces.ts";
+import {ICompilerThumb, ICPU, IConditionOperator, IInstruction} from "../interfaces.ts";
 
 /**
  * ARM Thumb 指令集
@@ -224,7 +224,7 @@ export default class ARMCoreThumb implements ICompilerThumb {
      * @param immediate 
      * @param condOp 
      */
-    constructB1(immediate: number, condOp: ICPUAddress): IInstruction {
+    constructB1(immediate: number, condOp: IConditionOperator): IInstruction {
         const cpu = this.cpu;
         const gprs = cpu.gprs;
         return function() {

@@ -527,14 +527,14 @@ export default class ARMCoreArm implements ICompilerArm {
     /**
      * 
      */
-    constructAddressingMode4(immediate:number, rn: number): IInstruction {
+    constructAddressingMode4(immediate:number, rn: number): ICPUAddress2 {
         const gprs = this.cpu.gprs;
-        return function() {
+        return function(): number {
             return gprs[rn] + immediate;
         }
     }
     
-    constructAddressingMode4Writeback(immediate: number, offset: number, rn: number, overlap: boolean) {
+    constructAddressingMode4Writeback(immediate: number, offset: number, rn: number, overlap: boolean): ICPUAddress2 {
         const cpu = this.cpu;
         const gprs = cpu.gprs;
         return function(writeInitial: boolean): number {
