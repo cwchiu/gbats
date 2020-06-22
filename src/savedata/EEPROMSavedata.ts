@@ -1,9 +1,9 @@
-import { ISave, IMMU, IDMA } from "../interfaces.ts";
+import { ISave, IGBAMMU, IDMA } from "../interfaces.ts";
 import { MemoryView } from "../mmu/mod.ts";
 
 export default class EEPROMSavedata extends MemoryView implements ISave {
   writePending: boolean = false;
-  mmu: IMMU;
+  mmu: IGBAMMU;
   dma: IDMA;
 
   readonly COMMAND_NULL = 0;
@@ -19,10 +19,10 @@ export default class EEPROMSavedata extends MemoryView implements ISave {
   realSize = 0;
   addressBits = 0;
 
-  constructor(size: number, mmu: IMMU) {
+  constructor(size: number, mmu: IGBAMMU) {
     super(new ArrayBuffer(size));
-    this.mmu = mmu;
-    this.dma = mmu.core.irq.dma[3];
+    this.mmu = mmu;    
+    this.dma = mmu.cpu.irq.dma[3];
   }
 
   load8(offset: number): number {
