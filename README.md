@@ -45,6 +45,9 @@ GBA.ts
     * (gba.js)GameBoyAdvance.reset() ; 所有元件重置
     * (mmu.js)mmu.loadRom
   
+## Arm/Thumb 指令集
+
+
 ## 相關專案
 
 * [GitHub - mgba-emu/mgba: mGBA Game Boy Advance Emulator](https://github.com/mgba-emu/mgba)
