@@ -45,6 +45,12 @@ GBA.ts
     * (gba.js)GameBoyAdvance.reset() ; 所有元件重置
     * (mmu.js)mmu.loadRom
   
+## 儲存遊戲狀態
+
+* (gba.js) GameBoyAdvance.downloadSavedata()
+* mmu.save.buffer 取得狀態 ArrayBuffer 
+* Blob to URL 將 ArrayBuffer 下載
+
 ## Arm/Thumb 指令集
 
 
