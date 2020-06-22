@@ -457,40 +457,38 @@ export default class ARMCore implements ICPU, IClose {
             // Not switching modes after all
             return;
         }
+
+        const currentMode = this.mode;
         this.mode = newMode;
 
-        // bug?
-        if ((newMode != ARMMode.User) && (newMode != ARMMode.System)) {
-            // Switch banked registers
-            const newBank = this.selectBank(newMode);
-            const oldBank = this.selectBank(this.mode);
-            if (newBank == oldBank) {
-                return;
-            }
-
-            // TODO: support FIQ
-            if (newMode == ARMMode.FIQ || this.mode == ARMMode.FIQ) {
-                const oldFiqBank: number = (oldBank == ARMBank.FIQ) ? 1 : 0;
-                const newFiqBank: number = (newBank == ARMBank.FIQ) ? 1 : 0;
-                this.bankedRegisters[oldFiqBank][2] = this.gprs[8];
-                this.bankedRegisters[oldFiqBank][3] = this.gprs[9];
-                this.bankedRegisters[oldFiqBank][4] = this.gprs[10];
-                this.bankedRegisters[oldFiqBank][5] = this.gprs[11];
-                this.bankedRegisters[oldFiqBank][6] = this.gprs[12];
-                this.gprs[8] = this.bankedRegisters[newFiqBank][2];
-                this.gprs[9] = this.bankedRegisters[newFiqBank][3];
-                this.gprs[10] = this.bankedRegisters[newFiqBank][4];
-                this.gprs[11] = this.bankedRegisters[newFiqBank][5];
-                this.gprs[12] = this.bankedRegisters[newFiqBank][6];
-            }
-            this.bankedRegisters[oldBank][0] = this.gprs[this.SP];
-            this.bankedRegisters[oldBank][1] = this.gprs[this.LR];
-            this.gprs[this.SP] = this.bankedRegisters[newBank][0];
-            this.gprs[this.LR] = this.bankedRegisters[newBank][1];
-
-            this.bankedSPSRs[oldBank] = this.spsr;
-            this.spsr = this.bankedSPSRs[newBank];
+        // Switch banked registers
+        const newBank = this.selectBank(newMode);
+        const oldBank = this.selectBank(currentMode);
+        if (newBank == oldBank) {
+            return;
         }
+
+        if (newMode == ARMMode.FIQ || currentMode == ARMMode.FIQ) {
+            const oldFiqBank: number = (oldBank == ARMBank.FIQ) ? 1 : 0;
+            const newFiqBank: number = (newBank == ARMBank.FIQ) ? 1 : 0;
+            this.bankedRegisters[oldFiqBank][2] = this.gprs[8];
+            this.bankedRegisters[oldFiqBank][3] = this.gprs[9];
+            this.bankedRegisters[oldFiqBank][4] = this.gprs[10];
+            this.bankedRegisters[oldFiqBank][5] = this.gprs[11];
+            this.bankedRegisters[oldFiqBank][6] = this.gprs[12];
+            this.gprs[8] = this.bankedRegisters[newFiqBank][2];
+            this.gprs[9] = this.bankedRegisters[newFiqBank][3];
+            this.gprs[10] = this.bankedRegisters[newFiqBank][4];
+            this.gprs[11] = this.bankedRegisters[newFiqBank][5];
+            this.gprs[12] = this.bankedRegisters[newFiqBank][6];
+        }
+        this.bankedRegisters[oldBank][0] = this.gprs[this.SP];
+        this.bankedRegisters[oldBank][1] = this.gprs[this.LR];
+        this.gprs[this.SP] = this.bankedRegisters[newBank][0];
+        this.gprs[this.LR] = this.bankedRegisters[newBank][1];
+
+        this.bankedSPSRs[oldBank] = this.spsr;
+        this.spsr = this.bankedSPSRs[newBank];
     }
 
     /**
@@ -1037,7 +1035,7 @@ export default class ARMCore implements ICPU, IClose {
                 shiftOp = this.shiftTypeToShiftOp(instruction, shiftType, rm);
             } else {
                 const immediate = (instruction & 0x00000F80) >> 7;
-                shiftOp = this.barrelShiftImmediate(shiftType, instruction, rm);
+                shiftOp = this.barrelShiftImmediate(shiftType, immediate, rm);
             }
             op = this.opcodeToArmOp(opcode, s, rd, rn, shiftOp, condOp);
         }
@@ -1070,9 +1068,10 @@ export default class ARMCore implements ICPU, IClose {
         const rm = instruction & 0x0000000F;
         const index = instruction & 0x00F00000;
         type CallFunc = (rd: number, rn: number, rs: number, rm: number, condOp: IConditionOperator) => IInstruction;
-        const func3Tofunc4 = function (call: Function): CallFunc {
+        const armCompiler = this.armCompiler;
+        const func3Tofunc4 = function (handler: Function): CallFunc {
             return function (rd: number, rn: number, rs: number, rm: number, condOp: IConditionOperator): IInstruction {
-                return call(rd, rs, rm, condOp);
+                return handler.call(armCompiler, rd, rs, rm, condOp);
             }
         };
 
@@ -1105,7 +1104,7 @@ export default class ARMCore implements ICPU, IClose {
 
         if (index in func) {
             return {
-                instruction: func[index](rd, rn, rs, rm, condOp),
+                instruction: func[index].call(this.armCompiler, rd, rn, rs, rm, condOp),
                 writesPC: (rd == this.PC)
             }
         } else {
