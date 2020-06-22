@@ -1,6 +1,15 @@
 export interface IGPIO{
     store16(offset:number, value:number):void
     store32(offset:number, value:number):void
+
+    outputPins(value: number):void
+
+    core: IGBA | ILog
+}
+
+export interface IGBARTC {
+    setPins(value: number): void
+    setDirection(value: number): void
 }
 
 export interface IMMU {
@@ -28,10 +37,19 @@ export interface IGBAMMU extends IMMU{
     accessPage(region:number, pageId: number): ICacheData
     addressToPage(region: number, address: number): number
 
+    mmap(region:number, object: IMemoryView): void
+
     readonly OFFSET_MASK: number
     readonly BASE_OFFSET: number
+    readonly REGION_IO: number
+    readonly REGION_PALETTE_RAM: number
+    readonly REGION_VRAM: number
+    readonly REGION_OAM: number
 
     memory: Array<unknown>
+    cpu: ICPU
+    save: ISave| IMemoryView | null
+    cart: ICart| null
 
     loadBios(bios:ArrayBuffer, real:boolean):void
     loadRom(rom: ArrayBuffer, process:boolean): ICart|null
@@ -66,8 +84,13 @@ export interface IMemoryView {
     store32(offset:number, value:number):void
 
     invalidatePage(address: number):void
+    
+    replaceData(memory:ArrayBuffer, offset:number):void
+
     buffer: ArrayBuffer
     icache: Array<ICacheData>
+    view: DataView;
+    mask: number;    
 }
 
 export interface IGPRSMap {
@@ -100,12 +123,22 @@ export interface IIO {
     TM1CNT_LO: number
     TM2CNT_LO: number
     TM3CNT_LO: number
+
+    DMA0CNT_HI: number
+    DMA1CNT_HI: number
+    DMA2CNT_HI: number
+    DMA3CNT_HI: number    
+}
+
+export interface IROMView {
+    view: DataView
+    mask: number
 }
 
 export type RegisterFlag = 0|1;
 
 export interface IContext {
-
+    io: IIO
 }
 
 export interface IRenderPath {
@@ -114,7 +147,7 @@ export interface IRenderPath {
 export interface ICPU {
     gprs: IGPRSMap
     mmu: IGBAMMU
-    irq: IIRQ
+    irq: IIRQ|IClear
     
     instructionWidth: number
     readonly PC:number
@@ -144,7 +177,9 @@ export interface ICPU {
     packCPSR(): number
     unpackCPSR(spsr:number): void
     hasSPSR(): boolean    
-    
+    resetCPU(startOffset: number): void
+    step(): void
+
     execMode: OpExecMode
     switchExecMode(mode: OpExecMode): void
     mode: ARMMode    
@@ -165,19 +200,42 @@ export interface NumberHashtable<T> {
 export interface IDMA {
     count: number
     enable: boolean
+    dest: number
+    repeat: boolean
+    timing: number
+
+    nextIRQ: number
+    doIrq: boolean
+
+        width: number
+        srcControl: number
+        dstControl: number
+        nextCount: number
+        nextSource: number
+        nextDest: number    
 }
 
-export interface IIRQ {
+export interface IClear {
     clear():void
+}
+
+export interface IIRQ {    
     testIRQ():void
     swi32(value: number):void
     swi(value: number):void
     updateTimers():void
+    dma: IDMA[]
+    audio: IAudio
+    video: IVideo
 }
 
+export type DMANumber = 0|1|2|3
+
 export interface ISave {
+    buffer: ArrayBuffer
     writePending: boolean
-    replaceData(memory:ArrayBuffer, offset:number):void
+    view: DataView
+
 }
 
 export interface ICart {
@@ -375,6 +433,21 @@ export interface ILogger {
     (level: number, message: string):void
 }
 
+export interface ILog {
+    setLogger(handler: ILogger):void
+
+    ERROR(error: string): void
+    WARN(warn: string):void
+    STUB(func: string): void
+    INFO(info: string): void
+    DEBUG(info: string): void
+}
+
+export interface IAssert {
+    ASSERT_UNREACHED(err: Error): never
+    ASSERT(test: boolean, err: Error): void
+}
+
 export interface IKeypad {    
     eatInput: boolean // 是否接受用戶輸入
 }
@@ -407,11 +480,13 @@ export interface IAudio {
     sampleFifoA():void
     sampleFifoB():void
     updateTimers():void
+
+    scheduleFIFODma(number: DMANumber, info: IDMA):void
 }
 
 export interface IGBA {
     setCanvas(canvas: unknown):void
-    setLogger(handler: ILogger):void
+    
     
     // TODO: 改為 get-property
     readonly keypad: IKeypad;
