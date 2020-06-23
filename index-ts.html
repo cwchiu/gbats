@@ -15,7 +15,7 @@
     <script src="js/video/proxy.js"></script>
     <script src="js/video/software.js"></script>
     <!-- <script src="js/irq.js"></script> -->
-    <script src="js/keypad.js"></script>
+    <!-- <script src="js/keypad.js"></script> -->
     <!-- <script src="js/sio.js"></script> -->
     
     <!-- <script src="js/gpio.js"></script> -->
@@ -75,10 +75,14 @@
         import {
             GameBoyAdvanceInterruptHandler
         } from "./dist/irq.js"
+        import {
+            GameBoyAdvanceKeypad
+        } from "./dist/keypad.js"
         window.ARMCore = ARMCore;
         window.GameBoyAdvanceSIO  = GameBoyAdvanceSIO ;
         window.GameBoyAdvanceMMU = GameBoyAdvanceMMU;
         window.GameBoyAdvanceInterruptHandler = GameBoyAdvanceInterruptHandler;
+        window.GameBoyAdvanceKeypad = GameBoyAdvanceKeypad;
   
         let gba;
         let runCommands = [];
