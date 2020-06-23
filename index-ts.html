@@ -8,17 +8,17 @@
     <!-- <script src="js/core.js"></script> -->
     <!-- <script src="js/arm.js"></script> -->
     <!-- <script src="js/thumb.js"></script> -->
-    <script src="js/mmu.js"></script>
+    <!-- <script src="js/mmu.js"></script> -->
     <script src="js/io.js"></script>
     <script src="js/audio.js"></script>
     <script src="js/video.js"></script>
     <script src="js/video/proxy.js"></script>
     <script src="js/video/software.js"></script>
-    <script src="js/irq.js"></script>
+    <!-- <script src="js/irq.js"></script> -->
     <script src="js/keypad.js"></script>
-    <script src="js/sio.js"></script>
+    <!-- <script src="js/sio.js"></script> -->
     
-    <script src="js/gpio.js"></script>
+    <!-- <script src="js/gpio.js"></script> -->
     <script src="js/gba.js"></script>
     <script src="resources/xhr.js"></script>
 
@@ -64,10 +64,21 @@
             FlashSavedata,
             SRAMSavedata
         } from "./dist/savedata.js";
+        import {
+            GameBoyAdvanceSIO 
+        } from "./dist/gpio.js";
+
+        import {
+            GameBoyAdvanceMMU,
+        } from "./dist/mmu.js"
+
+        import {
+            GameBoyAdvanceInterruptHandler
+        } from "./dist/irq.js"
         window.ARMCore = ARMCore;
-        window.SRAMSavedata = SRAMSavedata;
-        window.EEPROMSavedata = EEPROMSavedata;
-        window.FlashSavedata = FlashSavedata;
+        window.GameBoyAdvanceSIO  = GameBoyAdvanceSIO ;
+        window.GameBoyAdvanceMMU = GameBoyAdvanceMMU;
+        window.GameBoyAdvanceInterruptHandler = GameBoyAdvanceInterruptHandler;
   
         let gba;
         let runCommands = [];
