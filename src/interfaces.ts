@@ -12,6 +12,23 @@ export enum MemoryRegion {
     CART_SRAM = 0xE
 }
 
+export enum MemoryBase {
+    BASE_BIOS = 0x00000000,
+    BASE_WORKING_RAM = 0x02000000,
+    BASE_WORKING_IRAM = 0x03000000,
+    BASE_IO = 0x04000000,
+    BASE_PALETTE_RAM = 0x05000000,
+    BASE_VRAM = 0x06000000,
+    BASE_OAM = 0x07000000,
+    BASE_CART0 = 0x08000000,
+    BASE_CART1 = 0x0A000000,
+    BASE_CART2 = 0x0C000000,
+    BASE_CART_SRAM = 0x0E000000,
+
+    BASE_MASK = 0x0F000000,
+    BASE_OFFSET = 24,
+}
+
 export enum MemoryRegionSize {
     BIOS = 0x00004000,
     WORKING_RAM = 0x00040000,
@@ -61,6 +78,23 @@ export interface ILinkLayer {
     setBaud(value: number): void
 }
 
+export enum MemorySize {
+    SIZE_BIOS = 0x00004000,
+    SIZE_WORKING_RAM = 0x00040000,
+    SIZE_WORKING_IRAM = 0x00008000,
+    SIZE_IO = 0x00000400,
+    SIZE_PALETTE_RAM = 0x00000400,
+    SIZE_VRAM = 0x00018000,
+    SIZE_OAM = 0x00000400,
+    SIZE_CART0 = 0x02000000,
+    SIZE_CART1 = 0x02000000,
+    SIZE_CART2 = 0x02000000,
+    SIZE_CART_SRAM = 0x00008000,
+    SIZE_CART_FLASH512 = 0x00010000,
+    SIZE_CART_FLASH1M = 0x00020000,
+    SIZE_CART_EEPROM = 0x00002000,
+}
+
 export interface IGBAMMU extends IMMU {
     saveNeedsFlush(): boolean
     flushSave(): void
@@ -81,23 +115,12 @@ export interface IGBAMMU extends IMMU {
     mmap(region: number, object: IMemoryView): void
     serviceDma(number: DMANumber, info: IDMA): void
 
-    readonly OFFSET_MASK: number
-    readonly BASE_OFFSET: number
-    readonly BASE_IO: number
-    readonly SIZE_VRAM: number
-    readonly SIZE_OAM: number
-    // readonly REGION_IO: number
-    // readonly REGION_PALETTE_RAM: number
-    // readonly REGION_VRAM: number
-    // readonly REGION_OAM: number
-
-    // bios: IBIOS | IMemoryView
-    getBIOS():IBIOS
+    getBIOS(): IBIOS
     badMemory: IMemoryView | null
     memory: Array<IMemoryView | IBIOS | IIO | null>
-    // cpu: ICPU
     save: ISave | IMemoryView | null
     cart: ICart | null
+    readonly OFFSET_MASK: number
 
     loadBios(bios: ArrayBuffer, real: boolean): void
     loadRom(rom: ArrayBuffer, process: boolean): ICart | null
@@ -184,7 +207,7 @@ export interface IIO {
     IF: number
 
     store16(offset: number, value: number): void
-    getMemoryView():IMemoryView
+    getMemoryView(): IMemoryView
 }
 
 export interface IROMView {
@@ -202,9 +225,9 @@ export interface IContext {
     getIRQ(): IIRQ | IClose | IClear
     getCPU(): ICPU | IClose | IClear
     getMMU(): IGBAMMU | IClose | IClear
-    getLog():ILog
-    getGBA():IGBA
-    getKeypad():IKeypad
+    getLog(): ILog
+    getGBA(): IGBA
+    getKeypad(): IKeypad
 }
 
 export interface ICanvasHtmlElement {
@@ -218,8 +241,6 @@ export interface IGamepad {
 }
 export interface ICPU {
     gprs: IGPRSMap
-    // mmu: IGBAMMU
-    // irq: IIRQ | IClear
     instruction: IOp | null
     instructionWidth: number
     readonly PC: number
@@ -313,16 +334,13 @@ export interface IIRQ {
     dmaSetDestAddress(dma: number, address: number): void
 
     dma: IDMA[]
-    // audio: IAudio | null
-    // video: IVideo | null
-    // io: IIO | null
     FREQUENCY: number
 
     IRQ_VBLANK: number
     IRQ_HBLANK: number
     IRQ_VCOUNTER: number
 
-    getClear():IClear
+    getClear(): IClear
 }
 
 export type DMANumber = 0 | 1 | 2 | 3
@@ -584,7 +602,7 @@ export interface IVRAM {
     load32(offset: number): number
     loadU8(offset: number): number
     insert(start: number, data: ArrayLike<number>): void
-    getMemoryView():IMemoryView
+    getMemoryView(): IMemoryView
 }
 
 export type ICloseData = StringHashtable<any>
@@ -630,8 +648,6 @@ export interface IAudio {
 export interface IGBA {
     setCanvas(canvas: unknown): void
 
-
-    // TODO: 改為 get-property
     readonly targetCanvas: unknown
     readonly indirectCanvas: unknown
     readonly paused: boolean
@@ -710,7 +726,7 @@ export interface IOAM {
     video: IRenderPath | null
     objs: IVideoObject[]
     overwrite(memory: ArrayLike<number>): void
-    getMemoryView():IMemoryView
+    getMemoryView(): IMemoryView
 }
 
 export interface IVideoPalette {
@@ -724,7 +740,7 @@ export interface IVideoPalette {
     makeDarkPalettes(layers: number): void
     makeNormalPalette(layer: number): void
     makeSpecialPalette(layer: number): void
-    getMemoryView():IMemoryView
+    getMemoryView(): IMemoryView
 }
 
 export interface IMap {
@@ -867,16 +883,3 @@ export interface IVideoObjectLayer {
     index: number
 }
 
-export enum MMURegion {
-    REGION_BIOS = 0x0,
-    REGION_WORKING_RAM = 0x2,
-    REGION_WORKING_IRAM = 0x3,
-    REGION_IO = 0x4,
-    REGION_PALETTE_RAM = 0x5,
-    REGION_VRAM = 0x6,
-    REGION_OAM = 0x7,
-    REGION_CART0 = 0x8,
-    REGION_CART1 = 0xA,
-    REGION_CART2 = 0xC,
-    REGION_CART_SRAM = 0xE
-}

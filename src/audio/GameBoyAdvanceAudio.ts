@@ -1,4 +1,4 @@
-import { IAudio, ILog, ICloseData, IClose, IGBA, IClear, ICPU, IGBAMMU, DMANumber, IIRQ, IIO, NumberHashtable, IContext } from "../interfaces.ts";
+import { MemoryBase, IAudio, ILog, ICloseData, IClose, IGBA, IClear, ICPU, IGBAMMU, DMANumber, IIRQ, IIO, NumberHashtable, IContext } from "../interfaces.ts";
 
 interface IJSAudio {
     onaudioprocess(e: IAudioProcessingEvent): void
@@ -935,12 +935,12 @@ export default class GameBoyAdvanceAudio implements IAudio, IClose, IClear {
         const io = this.getIIO();
 
         switch (info.dest) {
-            case mmu.BASE_IO | io.FIFO_A_LO:
+            case MemoryBase.BASE_IO | io.FIFO_A_LO:
                 // FIXME: is this needed or a hack?
                 info.dstControl = 2;
                 this.dmaA = number;
                 break;
-            case mmu.BASE_IO | io.FIFO_B_LO:
+            case MemoryBase.BASE_IO | io.FIFO_B_LO:
                 info.dstControl = 2;
                 this.dmaB = number;
                 break;

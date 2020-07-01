@@ -4,56 +4,14 @@ import MemoryBlock from "./MemoryBlock.ts";
 import BadMemory from "./BadMemory.ts";
 import ROMView from "./ROMView.ts";
 import { GameBoyAdvanceGPIO } from "../gpio/mod.ts";
-import { MemoryRegion, MemoryRegionSize, IGPIO, ISave, IGBA, ICart, IIO, IAudio, IMemoryView, IBIOS, ICacheData, IGBAMMU, ICPU, IClose, IROMView, ICloseData, IClear, IContext, IIRQ, ILog, IDMA, DMANumber, NumberHashtable } from "../interfaces.ts";
+import { MemoryRegion, MemoryRegionSize, MemoryBase, IGPIO, ISave, IGBA, ICart, IIO, IAudio, IMemoryView, IBIOS, ICacheData, IGBAMMU, ICPU, IClose, IROMView, ICloseData, IClear, IContext, IIRQ, ILog, IDMA, DMANumber, NumberHashtable } from "../interfaces.ts";
 import {
     factory
 } from "../savedata/mod.ts";
 import { Serializer } from "../utils.ts";
 
 export default class GameBoyAdvanceMMU implements IGBAMMU, IClose, IClear {
-
-    readonly REGION_BIOS = 0x0;
-    readonly REGION_WORKING_RAM = 0x2;
-    readonly REGION_WORKING_IRAM = 0x3;
-    readonly REGION_IO = 0x4;
-    readonly REGION_PALETTE_RAM = 0x5;
-    readonly REGION_VRAM = 0x6;
-    readonly REGION_OAM = 0x7;
-    readonly REGION_CART0 = 0x8;
-    readonly REGION_CART1 = 0xA;
-    readonly REGION_CART2 = 0xC;
-    readonly REGION_CART_SRAM = 0xE;
-
-    readonly BASE_BIOS = 0x00000000;
-    readonly BASE_WORKING_RAM = 0x02000000;
-    readonly BASE_WORKING_IRAM = 0x03000000;
-    readonly BASE_IO = 0x04000000;
-    readonly BASE_PALETTE_RAM = 0x05000000;
-    readonly BASE_VRAM = 0x06000000;
-    readonly BASE_OAM = 0x07000000;
-    readonly BASE_CART0 = 0x08000000;
-    readonly BASE_CART1 = 0x0A000000;
-    readonly BASE_CART2 = 0x0C000000;
-    readonly BASE_CART_SRAM = 0x0E000000;
-
-    readonly BASE_MASK = 0x0F000000;
-    readonly BASE_OFFSET = 24;
     readonly OFFSET_MASK = 0x00FFFFFF;
-
-    readonly SIZE_BIOS = 0x00004000;
-    readonly SIZE_WORKING_RAM = 0x00040000;
-    readonly SIZE_WORKING_IRAM = 0x00008000;
-    readonly SIZE_IO = 0x00000400;
-    readonly SIZE_PALETTE_RAM = 0x00000400;
-    readonly SIZE_VRAM = 0x00018000;
-    readonly SIZE_OAM = 0x00000400;
-    readonly SIZE_CART0 = 0x02000000;
-    readonly SIZE_CART1 = 0x02000000;
-    readonly SIZE_CART2 = 0x02000000;
-    readonly SIZE_CART_SRAM = 0x00008000;
-    readonly SIZE_CART_FLASH512 = 0x00010000;
-    readonly SIZE_CART_FLASH1M = 0x00020000;
-    readonly SIZE_CART_EEPROM = 0x00002000;
 
     readonly DMA_TIMING_NOW = 0;
     readonly DMA_TIMING_VBLANK = 1;
@@ -95,8 +53,6 @@ export default class GameBoyAdvanceMMU implements IGBAMMU, IClose, IClear {
     
     private bios: IBIOS | IMemoryView | null = null
     DMA_REGISTER?: NumberHashtable<number>
-    
-    // cpu: ICPU
     
     core: IContext
     save: ISave | IMemoryView | null = null
@@ -368,7 +324,7 @@ export default class GameBoyAdvanceMMU implements IGBAMMU, IClose, IClear {
     };
 
     private getMemoryView(offset: number): IMemoryView {
-        return (this.memory[offset >>> this.BASE_OFFSET] as IMemoryView)
+        return (this.memory[offset >>> MemoryBase.BASE_OFFSET] as IMemoryView)
     }
 
     load8(offset: number): number {
@@ -436,12 +392,15 @@ export default class GameBoyAdvanceMMU implements IGBAMMU, IClose, IClear {
     //     return this.cpu as ICPU;
     // }
 
+    private getMemoryIndex(memory: number): number{
+        return memory >>> MemoryBase.BASE_OFFSET;
+    }
     /**
      * 
      * @param memory 
      */
     waitPrefetch(memory: number): void {
-        this.getCPU().cycles += 1 + this.waitstatesPrefetch[memory >>> this.BASE_OFFSET];
+        this.getCPU().cycles += 1 + this.waitstatesPrefetch[this.getMemoryIndex(memory)];
     }
 
     /**
@@ -449,7 +408,7 @@ export default class GameBoyAdvanceMMU implements IGBAMMU, IClose, IClear {
      * @param memory 
      */
     waitPrefetch32(memory: number): void {
-        this.getCPU().cycles += 1 + this.waitstatesPrefetch32[memory >>> this.BASE_OFFSET];
+        this.getCPU().cycles += 1 + this.waitstatesPrefetch32[this.getMemoryIndex(memory)];
     }
 
     /**
@@ -457,7 +416,7 @@ export default class GameBoyAdvanceMMU implements IGBAMMU, IClose, IClear {
      * @param memory 
      */
     wait(memory: number): void {
-        this.getCPU().cycles += 1 + this.waitstates[memory >>> this.BASE_OFFSET];
+        this.getCPU().cycles += 1 + this.waitstates[this.getMemoryIndex(memory)];
     }
 
     /**
@@ -465,7 +424,7 @@ export default class GameBoyAdvanceMMU implements IGBAMMU, IClose, IClear {
      * @param memory 
      */
     wait32(memory: number): void {
-        this.getCPU().cycles += 1 + this.waitstates32[memory >>> this.BASE_OFFSET];
+        this.getCPU().cycles += 1 + this.waitstates32[this.getMemoryIndex(memory)];
     }
 
     /**
@@ -473,7 +432,7 @@ export default class GameBoyAdvanceMMU implements IGBAMMU, IClose, IClear {
      * @param memory 
      */
     waitSeq(memory: number): void {
-        this.getCPU().cycles += 1 + this.waitstatesSeq[memory >>> this.BASE_OFFSET];
+        this.getCPU().cycles += 1 + this.waitstatesSeq[this.getMemoryIndex(memory)];
     }
 
     /**
@@ -481,7 +440,7 @@ export default class GameBoyAdvanceMMU implements IGBAMMU, IClose, IClear {
      * @param memory 
      */
     waitSeq32(memory: number): void {
-        this.getCPU().cycles += 1 + this.waitstatesSeq32[memory >>> this.BASE_OFFSET];
+        this.getCPU().cycles += 1 + this.waitstatesSeq32[this.getMemoryIndex(memory)];
     }
 
     /**
@@ -508,8 +467,9 @@ export default class GameBoyAdvanceMMU implements IGBAMMU, IClose, IClear {
      */
     waitMulti32(memory: number, seq: number): void {
         const cpu = this.getCPU();
-        cpu.cycles += 1 + this.waitstates32[memory >>> this.BASE_OFFSET];
-        cpu.cycles += (1 + this.waitstatesSeq32[memory >>> this.BASE_OFFSET]) * (seq - 1);
+        const index = this.getMemoryIndex(memory);
+        cpu.cycles += 1 + this.waitstates32[index];
+        cpu.cycles += (1 + this.waitstatesSeq32[index]) * (seq - 1);
     }
 
     addressToPage(region: number, address: number): number {
@@ -622,8 +582,8 @@ export default class GameBoyAdvanceMMU implements IGBAMMU, IClose, IClear {
         let wordsRemaining = info.nextCount;
         let source = info.nextSource & this.OFFSET_MASK;
         let dest = info.nextDest & this.OFFSET_MASK;
-        const sourceRegion = info.nextSource >>> this.BASE_OFFSET;
-        const destRegion = info.nextDest >>> this.BASE_OFFSET;
+        const sourceRegion = info.nextSource >>> MemoryBase.BASE_OFFSET;
+        const destRegion = info.nextDest >>> MemoryBase.BASE_OFFSET;
         const sourceBlock = this.memory[sourceRegion];
         const sourceBlockMem = this.memory[sourceRegion] as IMemoryView;
         const destBlock = this.memory[destRegion] as IBIOS;
@@ -719,8 +679,8 @@ export default class GameBoyAdvanceMMU implements IGBAMMU, IClose, IClear {
                 : this.waitstatesSeq[sourceRegion] + this.waitstatesSeq[destRegion]);
         }
 
-        info.nextSource = source | (sourceRegion << this.BASE_OFFSET);
-        info.nextDest = dest | (destRegion << this.BASE_OFFSET);
+        info.nextSource = source | (sourceRegion << MemoryBase.BASE_OFFSET);
+        info.nextDest = dest | (destRegion << MemoryBase.BASE_OFFSET);
         info.nextCount = wordsRemaining;
 
         if (!info.repeat) {

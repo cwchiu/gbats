@@ -1,4 +1,4 @@
-import { MMURegion, IVideo, ICanvasHtmlElement, IAudio, IKeypad, ISIO, IIO, IIRQ, IGBA, IClose, IGBAMMU, ICart, IFrost, ILogger, ILog, IAssert, ICPU, IClear, IContext, IRenderPath, IMemoryView } from "./interfaces.ts";
+import { MemoryRegion, IVideo, ICanvasHtmlElement, IAudio, IKeypad, ISIO, IIO, IIRQ, IGBA, IClose, IGBAMMU, ICart, IFrost, ILogger, ILog, IAssert, ICPU, IClear, IContext, IRenderPath, IMemoryView } from "./interfaces.ts";
 import { factoryIO, factorySIO } from "./gpio/mod.ts";
 import { factoryAudio } from "./audio/mod.ts";
 import { factoryVideo } from "./video/mod.ts";
@@ -8,7 +8,7 @@ import { factoryMMU } from "./mmu/mod.ts";
 import { factoryCPU } from "./core/mod.ts";
 
 interface Arg1Func {
-    (value:number): void
+    (value: number): void
 }
 
 class GameBoyAdvance implements IGBA, IClose, IContext, ILog, IAssert {
@@ -82,22 +82,22 @@ class GameBoyAdvance implements IGBA, IClose, IContext, ILog, IAssert {
     }
 
     getSIO(): ISIO | IClear {
-        return this.sio as ISIO;        
+        return this.sio as ISIO;
     }
 
-    getKeypad():IKeypad {
+    getKeypad(): IKeypad {
         return this.keypad;
     }
 
-    getLog():ILog {
+    getLog(): ILog {
         return this as ILog;
     }
 
-    getGBA():IGBA {
+    getGBA(): IGBA {
         return this as IGBA;
     }
-    
-    getContext():IContext {
+
+    getContext(): IContext {
         return this as IContext;
     }
 
@@ -135,7 +135,7 @@ class GameBoyAdvance implements IGBA, IClose, IContext, ILog, IAssert {
         if (canvas.offsetWidth != 240 || canvas.offsetHeight != 160) {
             // @ts-ignore
             this.indirectCanvas = document.createElement("canvas");
-            if(!this.indirectCanvas){
+            if (!this.indirectCanvas) {
                 throw new Error("create canvas error");
             }
             this.indirectCanvas.setAttribute("height", "160");
@@ -209,7 +209,7 @@ class GameBoyAdvance implements IGBA, IClose, IContext, ILog, IAssert {
         const reader = new FileReader();
         const self = this;
         // @ts-ignore
-        reader.onload = function(e) {
+        reader.onload = function (e) {
             // @ts-ignore
             var result = self.setRom(e.target.result);
             if (callback) {
@@ -232,11 +232,11 @@ class GameBoyAdvance implements IGBA, IClose, IContext, ILog, IAssert {
         (this.sio as IClear).clear();
 
         const gbammu = this.getGBAMMU();
-        gbammu.mmap(MMURegion.REGION_IO, (this.io as IIO).getMemoryView() );
+        gbammu.mmap(MemoryRegion.IO, (this.io as IIO).getMemoryView());
         const render = (this.video as IVideo).renderPath as IRenderPath;
-        gbammu.mmap(MMURegion.REGION_PALETTE_RAM, render.palette!.getMemoryView());
-        gbammu.mmap(MMURegion.REGION_VRAM, render.vram!.getMemoryView());
-        gbammu.mmap(MMURegion.REGION_OAM, render.oam!.getMemoryView());
+        gbammu.mmap(MemoryRegion.PALETTE_RAM, render.palette!.getMemoryView());
+        gbammu.mmap(MemoryRegion.VRAM, render.vram!.getMemoryView());
+        gbammu.mmap(MemoryRegion.OAM, render.oam!.getMemoryView());
 
         (this.cpu as ICPU).resetCPU(0);
     }
@@ -295,7 +295,7 @@ class GameBoyAdvance implements IGBA, IClose, IContext, ILog, IAssert {
      */
     runStable(): void {
         // if (this.interval) {
-            // return; // Already running
+        // return; // Already running
         // }
         var self = this;
         var timer = 0;

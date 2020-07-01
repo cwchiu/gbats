@@ -1,5 +1,5 @@
 import {
-    IGBAMMU, IContext, IIRQ, ICPU, ICacheData, ICompilerArm, ICompilerThumb, IOp, IClose, ICloseData,
+    MemoryBase, IGBAMMU, IContext, IIRQ, ICPU, ICacheData, ICompilerArm, ICompilerThumb, IOp, IClose, ICloseData,
     OpExecMode, ARMMode, ARMBank, IConditionOperator, IBIOS, ICPUOperator, IInstruction,
     NumberHashtable, ICPUAddress, IClear
 } from "../interfaces.ts";
@@ -333,7 +333,7 @@ export default class ARMCore implements ICPU, IClose {
 
     fetchPage(address: number): void {
         const mmu = this.getMMU();
-        const region = address >> mmu.BASE_OFFSET;
+        const region = address >> MemoryBase.BASE_OFFSET;
         const pageId = mmu.addressToPage(region, address & mmu.OFFSET_MASK);
         if (region == this.pageRegion) {
             if (pageId == this.pageId && !this.page?.invalid) {

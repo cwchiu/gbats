@@ -1,4 +1,4 @@
-import { IVideoShareMap, IVideoWindow, IPushPixel, NumberHashtable, IGBAMMU, IVideoObjectLayer, IRenderPath, IVideo, MemoryRegionSize, IClose, ICloseData, IPixelData, IVRAM, IBacking, IMap, IVideoPalette, IOAM, StringHashtable } from "../interfaces.ts";
+import { MemorySize, IVideoShareMap, IVideoWindow, IPushPixel, NumberHashtable, IGBAMMU, IVideoObjectLayer, IRenderPath, IVideo, MemoryRegionSize, IClose, ICloseData, IPixelData, IVRAM, IBacking, IMap, IVideoPalette, IOAM, StringHashtable } from "../interfaces.ts";
 
 import { factoryVideoPalette, factoryVideoRAM, factoryOAM, factoryVideoObjectLayer } from "./utils.ts";
 
@@ -169,8 +169,8 @@ export default class GameBoyAdvanceSoftwareRenderer implements IRenderPath, IClo
 
     clear(mmu: IGBAMMU): void {
         this.palette = factoryVideoPalette();
-        this.vram = factoryVideoRAM(mmu.SIZE_VRAM);
-        this.oam = factoryOAM(mmu.SIZE_OAM);
+        this.vram = factoryVideoRAM(MemorySize.SIZE_VRAM);
+        this.oam = factoryOAM(MemorySize.SIZE_OAM);
         this.oam.video = this;
         this.objLayers = [
             factoryVideoObjectLayer(this, 0),
