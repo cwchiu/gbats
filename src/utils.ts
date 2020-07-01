@@ -1,5 +1,19 @@
+export function hex(number: number, leading: number, usePrefix: boolean = false): string {
+	if (typeof(usePrefix) === 'undefined') {
+		usePrefix = true;
+	}
+	if (typeof(leading) === 'undefined') {
+		leading = 8;
+	}
+	const string = (number >>> 0).toString(16).toUpperCase();
+	leading -= string.length;
+	if (leading < 0)
+		return string;
+	return (usePrefix ? '0x' : '') + new Array(leading + 1).join('0') + string;
+}
 
-class Serializer {
+
+export class Serializer {
     static TYPE = 'application/octet-stream'
 
     static prefix(value: ArrayBuffer): Blob {

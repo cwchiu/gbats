@@ -1,8 +1,9 @@
-import {ISave} from "../interfaces.ts";
-import {MemoryView} from "../mmu/mod.ts";
+import {ISave, IDMA} from "../interfaces.ts";
+import MemoryView from "../mmu/MemoryView.ts";
 
 export default class SRAMSavedata extends MemoryView implements ISave {
     writePending:boolean = false
+    dma: IDMA | null = null
 
     constructor(size: number){
         super(new ArrayBuffer(size))

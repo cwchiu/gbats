@@ -1,4 +1,4 @@
-import {ICompilerThumb, ICPU, IConditionOperator, IInstruction} from "../interfaces.ts";
+import {ICompilerThumb, ICPU, IIRQ, IConditionOperator, IInstruction} from "../interfaces.ts";
 
 /**
  * ARM Thumb 指令集
@@ -1161,7 +1161,7 @@ export default class ARMCoreThumb implements ICompilerThumb {
         const cpu = this.cpu;
         const gprs = cpu.gprs;
         return function() {
-            cpu.irq.swi(immediate);
+            (cpu.irq as IIRQ).swi(immediate);
             cpu.mmu.waitPrefetch(gprs[cpu.PC]);
         }
     }

@@ -3,13 +3,12 @@ import BIOSView from "./BIOSView.ts";
 import MemoryBlock from "./MemoryBlock.ts";
 import BadMemory from "./BadMemory.ts";
 import ROMView from "./ROMView.ts";
-import {GameBoyAdvanceGPIO} from "../gpio/mod.ts";
-import {IGPIO, ISave, ICart, IMemoryView, IBIOS, ICacheData, IGBAMMU, ICPU, IClose, IROMView, ICloseData, IClear, IContext, IIRQ, ILog, IDMA, DMANumber} from "../interfaces.ts";
+import { GameBoyAdvanceGPIO } from "../gpio/mod.ts";
+import { MemoryRegion, MemoryRegionSize, IGPIO, ISave, IGBA, ICart, IIO, IAudio, IMemoryView, IBIOS, ICacheData, IGBAMMU, ICPU, IClose, IROMView, ICloseData, IClear, IContext, IIRQ, ILog, IDMA, DMANumber, NumberHashtable } from "../interfaces.ts";
 import {
-    EEPROMSavedata,
-    FlashSavedata,
-    SRAMSavedata
+    factory
 } from "../savedata/mod.ts";
+import { Serializer } from "../utils.ts";
 
 export default class GameBoyAdvanceMMU implements IGBAMMU, IClose, IClear {
 
@@ -66,24 +65,24 @@ export default class GameBoyAdvanceMMU implements IGBAMMU, IClose, IClear {
     readonly DMA_FIXED = 2;
     readonly DMA_INCREMENT_RELOAD = 3;
 
-    readonly DMA_OFFSET = [ 1, -1, 0, 1 ];
-   
-    readonly ROM_WS = [ 4, 3, 2, 8 ];
+    readonly DMA_OFFSET = [1, -1, 0, 1];
+
+    readonly ROM_WS = [4, 3, 2, 8];
     readonly ROM_WS_SEQ = [
-        [ 2, 1 ],
-        [ 4, 1 ],
-        [ 8, 1 ]
+        [2, 1],
+        [4, 1],
+        [8, 1]
     ];
 
     readonly ICACHE_PAGE_BITS = 8;
-    
-    WAITSTATES = [ 0, 0, 2, 0, 0, 0, 0, 0, 4, 4, 4, 4, 4, 4, 4 ];
-    WAITSTATES_32 = [ 0, 0, 5, 0, 0, 1, 0, 1, 7, 7, 9, 9, 13, 13, 8 ];
-    WAITSTATES_SEQ = [ 0, 0, 2, 0, 0, 0, 0, 0, 2, 2, 4, 4, 8, 8, 4 ];
-    WAITSTATES_SEQ_32 = [ 0, 0, 5, 0, 0, 1, 0, 1, 5, 5, 9, 9, 17, 17, 8 ];
-    NULLWAIT = [ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 ];
 
-    PAGE_MASK:number
+    WAITSTATES = [0, 0, 2, 0, 0, 0, 0, 0, 4, 4, 4, 4, 4, 4, 4];
+    WAITSTATES_32 = [0, 0, 5, 0, 0, 1, 0, 1, 7, 7, 9, 9, 13, 13, 8];
+    WAITSTATES_SEQ = [0, 0, 2, 0, 0, 0, 0, 0, 2, 2, 4, 4, 8, 8, 4];
+    WAITSTATES_SEQ_32 = [0, 0, 5, 0, 0, 1, 0, 1, 5, 5, 9, 9, 17, 17, 8];
+    NULLWAIT = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+
+    PAGE_MASK: number
 
     waitstates: number[] = []
     waitstatesSeq: number[] = []
@@ -92,19 +91,19 @@ export default class GameBoyAdvanceMMU implements IGBAMMU, IClose, IClear {
     waitstatesPrefetch: number[] = []
     waitstatesPrefetch32: number[] = []
 
-    badMemory: BadMemory|null = null
-    // @ts-ignore
-    bios: IBIOS|IMemoryView
-    DMA_REGISTER?: Array<number>
-    // @ts-ignore
-    cpu: ICPU
-    // @ts-ignore
-    core: IContext|ILog    
+    badMemory: IMemoryView | null = null
+    
+    private bios: IBIOS | IMemoryView | null = null
+    DMA_REGISTER?: NumberHashtable<number>
+    
+    // cpu: ICPU
+    
+    core: IContext
     save: ISave | IMemoryView | null = null
-    memory: Array<IMemoryView|IBIOS|null> = []    
+    memory: Array<IMemoryView | IBIOS | IIO | null> = []
     cart: ICart | null = null
 
-    constructor() {            
+    constructor(ctx: IContext) {
         for (let i = 15; i < 256; ++i) {
             this.WAITSTATES[i] = 0;
             this.WAITSTATES_32[i] = 0;
@@ -113,26 +112,35 @@ export default class GameBoyAdvanceMMU implements IGBAMMU, IClose, IClear {
             this.NULLWAIT[i] = 0;
         }
         this.PAGE_MASK = (2 << this.ICACHE_PAGE_BITS) - 1;
+        this.core = ctx;
     }
-    
+
+    getBIOS():IBIOS {
+        return this.bios as IBIOS;
+    }
+
     /**
      * 
      * @param region 
      * @param object 
      */
-    mmap(region:number, object: IMemoryView): void {
+    mmap(region: number, object: IMemoryView): void {
         this.memory[region] = object;
     }
 
-    private getILog():ILog{
-        return this.core as ILog;
+    private getILog(): ILog {
+        return this.core.getLog();
+    }
+
+    getCPU():ICPU {
+        return this.core.getCPU() as ICPU;
     }
 
     /**
      * 清除記憶體
      */
-    clear():void {
-        this.badMemory = new BadMemory(this, this.cpu as ICPU);
+    clear(): void {
+        this.badMemory = new BadMemory(this, this.getCPU());
 
         // 0~255
         // 0x00000000 BIOS
@@ -150,8 +158,8 @@ export default class GameBoyAdvanceMMU implements IGBAMMU, IClose, IClear {
         this.memory = [
             (this.bios as IMemoryView),
             this.badMemory, // Unused
-            new MemoryBlock(this.SIZE_WORKING_RAM, 9),
-            new MemoryBlock(this.SIZE_WORKING_IRAM, 7),
+            new MemoryBlock(MemoryRegionSize.WORKING_RAM, 9),
+            new MemoryBlock(MemoryRegionSize.WORKING_IRAM, 7),
             null, // This is owned by GameBoyAdvanceIO
             null, // This is owned by GameBoyAdvancePalette
             null, // This is owned by GameBoyAdvanceVRAM
@@ -168,26 +176,26 @@ export default class GameBoyAdvanceMMU implements IGBAMMU, IClose, IClear {
         for (let i = 16; i < 256; ++i) {
             this.memory[i] = this.badMemory;
         }
-    
+
         this.waitstates = this.WAITSTATES.slice(0);
         this.waitstatesSeq = this.WAITSTATES_SEQ.slice(0);
         this.waitstates32 = this.WAITSTATES_32.slice(0);
         this.waitstatesSeq32 = this.WAITSTATES_SEQ_32.slice(0);
         this.waitstatesPrefetch = this.WAITSTATES_SEQ.slice(0);
         this.waitstatesPrefetch32 = this.WAITSTATES_SEQ_32.slice(0);
-    
+
         this.cart = null;
         this.save = null;
-    
-        const context = this.core as IContext;
+
+        const io = (this.core as IContext).getIO() as IIO;
         this.DMA_REGISTER = [
-            context.io.DMA0CNT_HI >> 1,
-            context.io.DMA1CNT_HI >> 1,
-            context.io.DMA2CNT_HI >> 1,
-            context.io.DMA3CNT_HI >> 1
+            io.DMA0CNT_HI >> 1,
+            io.DMA1CNT_HI >> 1,
+            io.DMA2CNT_HI >> 1,
+            io.DMA3CNT_HI >> 1
         ];
     }
-    
+
     freeze(): ICloseData {
         return {
             'ram': Serializer.prefix(this.getWorkingRam().buffer),
@@ -196,49 +204,49 @@ export default class GameBoyAdvanceMMU implements IGBAMMU, IClose, IClear {
     }
 
     private getWorkingRam(): IMemoryView {
-        return this.memory[this.REGION_WORKING_RAM] as IMemoryView;
+        return this.memory[MemoryRegion.WORKING_RAM] as IMemoryView;
     }
 
     private getWorkingIRam(): IMemoryView {
-        return this.memory[this.REGION_WORKING_IRAM] as IMemoryView;
+        return this.memory[MemoryRegion.WORKING_IRAM] as IMemoryView;
     }
-    
+
     defrost(frost: ICloseData): void {
         this.getWorkingRam().replaceData(frost.ram, 0);
         this.getWorkingIRam().replaceData(frost.iram, 0);
     }
-    
+
     /**
      * 載入 BIOS
      * @param bios 
      * @param real 
      */
-    loadBios(bios:ArrayBuffer, real:boolean = false):void {
-        this.bios = new BIOSView(bios) as IBIOS;        
+    loadBios(bios: ArrayBuffer, real: boolean = false): void {
+        this.bios = new BIOSView(bios) as IBIOS;
         this.bios.real = real;
     }
-    
+
     /**
      * 載入遊戲
      * @param rom 遊戲 ROM
      * @param process 
      */
-    loadRom(rom: ArrayBuffer, process:boolean): ICart|null {
+    loadRom(rom: ArrayBuffer, process: boolean): ICart | null {
         const lo = new ROMView(rom);
         if (lo.view.getUint8(0xB2) != 0x96) {
             // Not a valid ROM
             return null;
         }
         lo.setMMU(this); // Needed for GPIO        
-        this.memory[this.REGION_CART0] = lo;
-        this.memory[this.REGION_CART1] = lo;
-        this.memory[this.REGION_CART2] = lo;
-    
+        this.memory[MemoryRegion.CART0] = lo;
+        this.memory[MemoryRegion.CART1] = lo;
+        this.memory[MemoryRegion.CART2] = lo;
+
         if (rom.byteLength > 0x01000000) {
             const hi = new ROMView(rom, 0x01000000);
-            this.memory[this.REGION_CART0 + 1] = hi;
-            this.memory[this.REGION_CART1 + 1] = hi;
-            this.memory[this.REGION_CART2 + 1] = hi;
+            this.memory[MemoryRegion.CART0 + 1] = hi;
+            this.memory[MemoryRegion.CART1 + 1] = hi;
+            this.memory[MemoryRegion.CART2 + 1] = hi;
         }
 
         let cart: ICart = {
@@ -250,88 +258,81 @@ export default class GameBoyAdvanceMMU implements IGBAMMU, IClose, IClear {
         };
 
         if (process) {
-            cart.title = this.findTitle(rom);    
-            cart.code = this.findCode(rom);   
+            cart.title = this.findTitle(rom);
+            cart.code = this.findCode(rom);
             cart.maker = this.findMaker(rom);
-    
+
             // Find savedata type
-            const saveType:string|null = this.findSaveType(rom);
-            if(saveType){
-                cart.saveType = saveType;
-                switch (saveType) {
-                case 'FLASH_V':
-                case 'FLASH512_V':
-                    this.save = this.memory[this.REGION_CART_SRAM] = new FlashSavedata(this.SIZE_CART_FLASH512);
-                    break;
-                case 'FLASH1M_V':
-                    this.save = this.memory[this.REGION_CART_SRAM] = new FlashSavedata(this.SIZE_CART_FLASH1M);
-                    break;
-                case 'SRAM_V':
-                    this.save = this.memory[this.REGION_CART_SRAM] = new SRAMSavedata(this.SIZE_CART_SRAM);
-                    break;
-                case 'EEPROM_V':
-                    this.save = this.memory[this.REGION_CART2 + 1] = new EEPROMSavedata(this.SIZE_CART_EEPROM, this);
-                    break;
-                }
-            }
-            if (!this.save) {
-                // Assume we have SRAM
-                this.save = this.memory[this.REGION_CART_SRAM] = new SRAMSavedata(this.SIZE_CART_SRAM);
-            }
+            const saveType: string | null = this.findSaveType(rom);
+            // if(saveType){                
+            // try{
+            const result = factory(saveType || '');
+            this.save = result.savedata as ISave;
+            this.memory[result.region] = result.savedata as IMemoryView;
+            this.save.dma = this.getIRQ().dma[3];
+            cart.saveType = result.saveType;
+            // }catch(err){
+            // nothing
+            // }
+            // }
+            // if (!this.save) {
+            // Assume we have SRAM
+            // this.save = this.memory[MemoryRegion.CART_SRAM] = new SRAMSavedata(this.SIZE_CART_SRAM);
+            // }
         }
-    
+
         this.cart = cart;
         return cart;
     }
-    
-    private findTitle(rom: ArrayBuffer):string{
+
+    private findTitle(rom: ArrayBuffer): string {
         const content = new Uint8Array(rom);
-        return String.fromCharCode(...content.slice(0xa0, 0xa0+12));
+        return String.fromCharCode(...content.slice(0xa0, 0xa0 + 12));
     }
 
-    private findCode(rom: ArrayBuffer):string{
+    private findCode(rom: ArrayBuffer): string {
         const content = new Uint8Array(rom);
-        return String.fromCharCode(...content.slice(0xac, 0xac+4));
+        return String.fromCharCode(...content.slice(0xac, 0xac + 4));
     }
 
-    private findMaker(rom: ArrayBuffer):string{
+    private findMaker(rom: ArrayBuffer): string {
         const content = new Uint8Array(rom);
-        return String.fromCharCode(...content.slice(0xb0, 0xb0+2));
+        return String.fromCharCode(...content.slice(0xb0, 0xb0 + 2));
     }
 
     /**
      * 存檔格式類型
      * @param rom 
      */
-    private findSaveType(rom: ArrayBuffer):string|null {
+    private findSaveType(rom: ArrayBuffer): string | null {
         let state = '';
         let next;
         const pattern1: readonly string[] = ['F',
-        'FL',
-        'FLA',
-        'FLAS',
-        'FLASH',
-        'FLASH_',
-        'FLASH5',
-        'FLASH51',
-        'FLASH512',
-        'FLASH512_',
-        'FLASH1',
-        'FLASH1M',
-        'FLASH1M_',
-        'S',
-        'SR',
-        'SRA',
-        'SRAM',
-        'SRAM_',
-        'E',
-        'EE',
-        'EEP',
-        'EEPR',
-        'EEPRO',
-        'EEPROM',
-        'EEPROM_'];
-    
+            'FL',
+            'FLA',
+            'FLAS',
+            'FLASH',
+            'FLASH_',
+            'FLASH5',
+            'FLASH51',
+            'FLASH512',
+            'FLASH512_',
+            'FLASH1',
+            'FLASH1M',
+            'FLASH1M_',
+            'S',
+            'SR',
+            'SRA',
+            'SRAM',
+            'SRAM_',
+            'E',
+            'EE',
+            'EEP',
+            'EEPR',
+            'EEPRO',
+            'EEPROM',
+            'EEPROM_'];
+
         const pattern2: readonly string[] = [
             'FLASH_V',
             'FLASH512_V',
@@ -340,16 +341,16 @@ export default class GameBoyAdvanceMMU implements IGBAMMU, IClose, IClear {
             'EEPROM_V',
         ];
         const content = new Uint8Array(rom);
-        for(let i = 0xe4;i<content.length;++i){
+        for (let i = 0xe4; i < content.length; ++i) {
             next = String.fromCharCode(content[i]);
             state += next;
-            if(pattern1.includes(state)){
+            if (pattern1.includes(state)) {
                 continue;
             }
-            if(pattern2.includes(state)){
+            if (pattern2.includes(state)) {
                 return state;
             }
-            state = next;         
+            state = next;
         }
         return null;
     }
@@ -358,136 +359,136 @@ export default class GameBoyAdvanceMMU implements IGBAMMU, IClose, IClear {
      * 載入遊戲狀態
      * @param save 
      */
-    loadSavedata(save: ArrayBuffer):void {        
-        if(!this.save){
+    loadSavedata(save: ArrayBuffer): void {
+        if (!this.save) {
             throw new Error("save is null");
         }
 
         (this.save as IMemoryView).replaceData(save, 0);
     };
-    
-    private getMemoryView(offset:number): IMemoryView {
+
+    private getMemoryView(offset: number): IMemoryView {
         return (this.memory[offset >>> this.BASE_OFFSET] as IMemoryView)
     }
 
-    load8(offset:number): number {
+    load8(offset: number): number {
         return this.getMemoryView(offset).load8(offset & 0x00FFFFFF);
     }
-    
-    load16(offset:number): number {
+
+    load16(offset: number): number {
         return this.getMemoryView(offset).load16(offset & 0x00FFFFFF);
     }
-    
-    load32(offset:number): number {
+
+    load32(offset: number): number {
         return this.getMemoryView(offset).load32(offset & 0x00FFFFFF);
     }
-    
-    loadU8(offset:number): number {
+
+    loadU8(offset: number): number {
         return this.getMemoryView(offset).loadU8(offset & 0x00FFFFFF);
     }
-    
-    loadU16(offset:number): number {
+
+    loadU16(offset: number): number {
         return this.getMemoryView(offset).loadU16(offset & 0x00FFFFFF);
     }
-    
+
     /**
      * 
      * @param offset 
      * @param value 
      */
-    store8(offset:number, value:number):void {
+    store8(offset: number, value: number): void {
         const maskedOffset = offset & 0x00FFFFFF;
         const memory = this.getMemoryView(offset);
         memory.store8(maskedOffset, value);
         memory.invalidatePage(maskedOffset);
     }
-    
+
     /**
      * 
      * @param offset 
      * @param value 
      */
-    store16(offset:number, value:number):void {
+    store16(offset: number, value: number): void {
         const maskedOffset = offset & 0x00FFFFFE;
         const memory = this.getMemoryView(offset);
         memory.store16(maskedOffset, value);
         memory.invalidatePage(maskedOffset);
     }
-    
+
     /**
      * 
      * @param offset 
      * @param value 
      */
-    store32(offset:number, value:number):void {
+    store32(offset: number, value: number): void {
         const maskedOffset = offset & 0x00FFFFFC;
         const memory = this.getMemoryView(offset);
         memory.store32(maskedOffset, value);
         memory.invalidatePage(maskedOffset);
         memory.invalidatePage(maskedOffset + 2);
     }
-    
-    private getCPU(): ICPU{
-        if(!this.cpu){
-            throw new Error("cpu is null");
-        }
 
-        return this.cpu as ICPU;
-    }
+    // private getCPU(): ICPU {
+    //     if (!this.cpu) {
+    //         throw new Error("cpu is null");
+    //     }
+
+    //     return this.cpu as ICPU;
+    // }
 
     /**
      * 
      * @param memory 
      */
-    waitPrefetch(memory:number):void {
+    waitPrefetch(memory: number): void {
         this.getCPU().cycles += 1 + this.waitstatesPrefetch[memory >>> this.BASE_OFFSET];
     }
-    
+
     /**
      * 
      * @param memory 
      */
-    waitPrefetch32(memory:number):void {
+    waitPrefetch32(memory: number): void {
         this.getCPU().cycles += 1 + this.waitstatesPrefetch32[memory >>> this.BASE_OFFSET];
     }
-    
+
     /**
      * 
      * @param memory 
      */
-    wait(memory:number):void {
+    wait(memory: number): void {
         this.getCPU().cycles += 1 + this.waitstates[memory >>> this.BASE_OFFSET];
     }
-    
+
     /**
      * 
      * @param memory 
      */
-    wait32(memory:number):void {
+    wait32(memory: number): void {
         this.getCPU().cycles += 1 + this.waitstates32[memory >>> this.BASE_OFFSET];
     }
-    
+
     /**
      * 
      * @param memory 
      */
-    waitSeq(memory:number):void {
+    waitSeq(memory: number): void {
         this.getCPU().cycles += 1 + this.waitstatesSeq[memory >>> this.BASE_OFFSET];
     }
-    
+
     /**
      * 
      * @param memory 
      */
-    waitSeq32(memory:number):void {
+    waitSeq32(memory: number): void {
         this.getCPU().cycles += 1 + this.waitstatesSeq32[memory >>> this.BASE_OFFSET];
     }
-    
+
     /**
      * 
      * @param rs 
      */
-    waitMul(rs:number):void {
+    waitMul(rs: number): void {
         const cpu = this.getCPU();
         if (((rs & 0xFFFFFF00) == 0xFFFFFF00) || !(rs & 0xFFFFFF00)) {
             cpu.cycles += 1;
@@ -499,35 +500,39 @@ export default class GameBoyAdvanceMMU implements IGBAMMU, IClose, IClear {
             cpu.cycles += 4;
         }
     }
-    
+
     /**
      * 
      * @param memory 
      * @param seq 
      */
-    waitMulti32(memory:number, seq:number):void {
+    waitMulti32(memory: number, seq: number): void {
         const cpu = this.getCPU();
         cpu.cycles += 1 + this.waitstates32[memory >>> this.BASE_OFFSET];
         cpu.cycles += (1 + this.waitstatesSeq32[memory >>> this.BASE_OFFSET]) * (seq - 1);
     }
-    
+
     addressToPage(region: number, address: number): number {
-        if(! this.memory[region]){
+        if (!this.memory[region]) {
             throw new Error("memory is invalid");
         }
-        const memory =  this.memory[region] as IBIOS;
+        const memory = this.memory[region] as IBIOS;
         return address >> memory.ICACHE_PAGE_BITS;
     }
-    
-    accessPage(region:number, pageId: number): ICacheData {
+
+    /**
+     * 
+     * @param region 
+     * @param pageId 
+     */
+    accessPage(region: number, pageId: number): ICacheData {
         const memory = this.memory[region] as IMemoryView;
-        if(!memory.icache){
+        if (!memory.icache) {
             throw new Error("no init icache");
         }
         const bios = this.memory[region] as IBIOS;
         let page = memory.icache[pageId];
-        if (!page) {
-             (page as ICacheData).invalid
+        if (!page || (page as ICacheData).invalid) {
             page = {
                 thumb: new Array(1 << (bios.ICACHE_PAGE_BITS)),
                 arm: new Array(1 << bios.ICACHE_PAGE_BITS - 1),
@@ -538,32 +543,41 @@ export default class GameBoyAdvanceMMU implements IGBAMMU, IClose, IClear {
         }
         return page;
     }
-    
-    scheduleDma(number: DMANumber, info: IDMA):void {
+
+    scheduleDma(number: DMANumber, info: IDMA): void {
         switch (info.timing) {
-        case this.DMA_TIMING_NOW:
-            this.serviceDma(number, info);
-            break;
-        case this.DMA_TIMING_HBLANK:
-            // Handled implicitly
-            break;
-        case this.DMA_TIMING_VBLANK:
-            // Handled implicitly
-            break;
-        case this.DMA_TIMING_CUSTOM:
-            switch (number) {
-            case 0:
-                (this.core as ILog).WARN('Discarding invalid DMA0 scheduling');
+            case this.DMA_TIMING_NOW:
+                this.serviceDma(number, info);
                 break;
-            case 1:
-            case 2:
-                this.getIRQ().audio.scheduleFIFODma(number, info);
+            case this.DMA_TIMING_HBLANK:
+                // Handled implicitly
                 break;
-            // case 3:
-                // this.getIRQ().video.scheduleVCaptureDma(dma, info);
-                // break;
-            }
+            case this.DMA_TIMING_VBLANK:
+                // Handled implicitly
+                break;
+            case this.DMA_TIMING_CUSTOM:
+                switch (number) {
+                    case 0:
+                        this.core.getLog().WARN('Discarding invalid DMA0 scheduling');
+                        break;
+                    case 1:
+                    case 2:
+                        this.getAudio().scheduleFIFODma(number, info);
+                        break;
+                    // case 3:
+                    // this.getIRQ().video.scheduleVCaptureDma(dma, info);
+                    // break;
+                }
         }
+    }
+
+    private getAudio(): IAudio {
+        const audio = this.getIRQ().audio;
+        if (!audio) {
+            throw new Error("audio no init");
+        }
+
+        return audio;
     }
 
     private getIRQ(): IIRQ {
@@ -574,7 +588,7 @@ export default class GameBoyAdvanceMMU implements IGBAMMU, IClose, IClear {
     /**
      * 
      */
-    runHblankDmas():void {        
+    runHblankDmas(): void {
         const irq = this.getIRQ();
         for (let i = 0; i < irq.dma.length; ++i) {
             const dma = irq.dma[i];
@@ -583,12 +597,12 @@ export default class GameBoyAdvanceMMU implements IGBAMMU, IClose, IClear {
             }
         }
     }
-    
+
     /**
      * 
      */
-    runVblankDmas():void {
-        const irq = this.getIRQ();        
+    runVblankDmas(): void {
+        const irq = this.getIRQ();
         for (let i = 0; i < irq.dma.length; ++i) {
             const dma = irq.dma[i];
             if (dma.enable && dma.timing == this.DMA_TIMING_VBLANK) {
@@ -596,18 +610,18 @@ export default class GameBoyAdvanceMMU implements IGBAMMU, IClose, IClear {
             }
         }
     }
-    
+
     /**
      * 
      * @param number 
      * @param info 
      */
-    serviceDma(number: DMANumber, info: IDMA):void {
+    serviceDma(number: DMANumber, info: IDMA): void {
         if (!info.enable) {
             // There was a DMA scheduled that got canceled
             return;
         }
-    
+
         const width = info.width;
         const sourceOffset = this.DMA_OFFSET[info.srcControl] * width;
         const destOffset = this.DMA_OFFSET[info.dstControl] * width;
@@ -625,24 +639,24 @@ export default class GameBoyAdvanceMMU implements IGBAMMU, IClose, IClear {
         let sourceMask = 0xFFFFFFFF;
         let destMask = 0xFFFFFFFF;
         let word;
-    
+
         if (destBlock.ICACHE_PAGE_BITS) {
             var endPage = (dest + wordsRemaining * width) >> destBlock.ICACHE_PAGE_BITS;
             for (var i = dest >> destBlock.ICACHE_PAGE_BITS; i <= endPage; ++i) {
                 destBlockMem.invalidatePage(i << destBlock.ICACHE_PAGE_BITS);
             }
         }
-    
-        if (destRegion == this.REGION_WORKING_RAM || destRegion == this.REGION_WORKING_IRAM) {
+
+        if (destRegion == MemoryRegion.WORKING_RAM || destRegion == MemoryRegion.WORKING_IRAM) {
             destView = destBlockMem.view;
             destMask = destBlockMem.mask;
         }
-    
-        if (sourceRegion == this.REGION_WORKING_RAM || sourceRegion == this.REGION_WORKING_IRAM || sourceRegion == this.REGION_CART0 || sourceRegion == this.REGION_CART1) {
+
+        if (sourceRegion == MemoryRegion.WORKING_RAM || sourceRegion == MemoryRegion.WORKING_IRAM || sourceRegion == MemoryRegion.CART0 || sourceRegion == MemoryRegion.CART1) {
             sourceView = sourceBlockMem.view;
             sourceMask = sourceBlockMem.mask;
         }
-    
+
         if (sourceBlock && destBlock) {
             if (sourceView && destView) {
                 if (width == 4) {
@@ -702,25 +716,32 @@ export default class GameBoyAdvanceMMU implements IGBAMMU, IClose, IClear {
         } else {
             this.getILog().WARN('Invalid DMA');
         }
-    
+
         if (info.doIrq) {
             info.nextIRQ = this.getCPU().cycles + 2;
             info.nextIRQ += (width == 4 ? this.waitstates32[sourceRegion] + this.waitstates32[destRegion]
-                                        : this.waitstates[sourceRegion] + this.waitstates[destRegion]);
+                : this.waitstates[sourceRegion] + this.waitstates[destRegion]);
             info.nextIRQ += (info.count - 1) * (width == 4 ? this.waitstatesSeq32[sourceRegion] + this.waitstatesSeq32[destRegion]
-                                                           : this.waitstatesSeq[sourceRegion] + this.waitstatesSeq[destRegion]);
+                : this.waitstatesSeq[sourceRegion] + this.waitstatesSeq[destRegion]);
         }
-    
+
         info.nextSource = source | (sourceRegion << this.BASE_OFFSET);
         info.nextDest = dest | (destRegion << this.BASE_OFFSET);
         info.nextCount = wordsRemaining;
-    
+
         if (!info.repeat) {
             info.enable = false;
-    
+
             // Clear the enable bit in memory
-            const io = this.memory[this.REGION_IO];
-            io.registers[this.DMA_REGISTER[number]] &= 0x7FE0;
+            if (!this.DMA_REGISTER) {
+                throw new Error("dma register invalid");
+            }
+            const dmaReg = this.DMA_REGISTER[number];
+            const io = this.getIIO();
+            if(!io.registers){
+                throw new Error("io register no init");
+            }
+            io.registers[dmaReg] &= 0x7FE0;
         } else {
             info.nextCount = info.count;
             if (info.dstControl == this.DMA_INCREMENT_RELOAD) {
@@ -729,12 +750,15 @@ export default class GameBoyAdvanceMMU implements IGBAMMU, IClose, IClear {
             this.scheduleDma(number, info);
         }
     }
-    
+
+    private getIIO(): IIO {
+        return this.memory[MemoryRegion.IO] as IIO;
+    }
     /**
      * 
      * @param word 
      */
-    adjustTimings(word:number):void {
+    adjustTimings(word: number): void {
         var sram = word & 0x0003;
         var ws0 = (word & 0x000C) >> 2;
         var ws0seq = (word & 0x0010) >> 4;
@@ -743,49 +767,49 @@ export default class GameBoyAdvanceMMU implements IGBAMMU, IClose, IClear {
         var ws2 = (word & 0x0300) >> 8;
         var ws2seq = (word & 0x0400) >> 10;
         var prefetch = word & 0x4000;
-    
-        this.waitstates[this.REGION_CART_SRAM] = this.ROM_WS[sram];
-        this.waitstatesSeq[this.REGION_CART_SRAM] = this.ROM_WS[sram];
-        this.waitstates32[this.REGION_CART_SRAM] = this.ROM_WS[sram];
-        this.waitstatesSeq32[this.REGION_CART_SRAM] = this.ROM_WS[sram];
-    
-        this.waitstates[this.REGION_CART0] = this.waitstates[this.REGION_CART0 + 1] = this.ROM_WS[ws0];
-        this.waitstates[this.REGION_CART1] = this.waitstates[this.REGION_CART1 + 1] = this.ROM_WS[ws1];
-        this.waitstates[this.REGION_CART2] = this.waitstates[this.REGION_CART2 + 1] = this.ROM_WS[ws2];
-    
-        this.waitstatesSeq[this.REGION_CART0] = this.waitstatesSeq[this.REGION_CART0 + 1] = this.ROM_WS_SEQ[0][ws0seq];
-        this.waitstatesSeq[this.REGION_CART1] = this.waitstatesSeq[this.REGION_CART1 + 1] = this.ROM_WS_SEQ[1][ws1seq];
-        this.waitstatesSeq[this.REGION_CART2] = this.waitstatesSeq[this.REGION_CART2 + 1] = this.ROM_WS_SEQ[2][ws2seq];
-    
-        this.waitstates32[this.REGION_CART0] = this.waitstates32[this.REGION_CART0 + 1] = this.waitstates[this.REGION_CART0] + 1 + this.waitstatesSeq[this.REGION_CART0];
-        this.waitstates32[this.REGION_CART1] = this.waitstates32[this.REGION_CART1 + 1] = this.waitstates[this.REGION_CART1] + 1 + this.waitstatesSeq[this.REGION_CART1];
-        this.waitstates32[this.REGION_CART2] = this.waitstates32[this.REGION_CART2 + 1] = this.waitstates[this.REGION_CART2] + 1 + this.waitstatesSeq[this.REGION_CART2];
-    
-        this.waitstatesSeq32[this.REGION_CART0] = this.waitstatesSeq32[this.REGION_CART0 + 1] = 2 * this.waitstatesSeq[this.REGION_CART0] + 1;
-        this.waitstatesSeq32[this.REGION_CART1] = this.waitstatesSeq32[this.REGION_CART1 + 1] = 2 * this.waitstatesSeq[this.REGION_CART1] + 1;
-        this.waitstatesSeq32[this.REGION_CART2] = this.waitstatesSeq32[this.REGION_CART2 + 1] = 2 * this.waitstatesSeq[this.REGION_CART2] + 1;
-    
+
+        this.waitstates[MemoryRegion.CART_SRAM] = this.ROM_WS[sram];
+        this.waitstatesSeq[MemoryRegion.CART_SRAM] = this.ROM_WS[sram];
+        this.waitstates32[MemoryRegion.CART_SRAM] = this.ROM_WS[sram];
+        this.waitstatesSeq32[MemoryRegion.CART_SRAM] = this.ROM_WS[sram];
+
+        this.waitstates[MemoryRegion.CART0] = this.waitstates[MemoryRegion.CART0 + 1] = this.ROM_WS[ws0];
+        this.waitstates[MemoryRegion.CART1] = this.waitstates[MemoryRegion.CART1 + 1] = this.ROM_WS[ws1];
+        this.waitstates[MemoryRegion.CART2] = this.waitstates[MemoryRegion.CART2 + 1] = this.ROM_WS[ws2];
+
+        this.waitstatesSeq[MemoryRegion.CART0] = this.waitstatesSeq[MemoryRegion.CART0 + 1] = this.ROM_WS_SEQ[0][ws0seq];
+        this.waitstatesSeq[MemoryRegion.CART1] = this.waitstatesSeq[MemoryRegion.CART1 + 1] = this.ROM_WS_SEQ[1][ws1seq];
+        this.waitstatesSeq[MemoryRegion.CART2] = this.waitstatesSeq[MemoryRegion.CART2 + 1] = this.ROM_WS_SEQ[2][ws2seq];
+
+        this.waitstates32[MemoryRegion.CART0] = this.waitstates32[MemoryRegion.CART0 + 1] = this.waitstates[MemoryRegion.CART0] + 1 + this.waitstatesSeq[MemoryRegion.CART0];
+        this.waitstates32[MemoryRegion.CART1] = this.waitstates32[MemoryRegion.CART1 + 1] = this.waitstates[MemoryRegion.CART1] + 1 + this.waitstatesSeq[MemoryRegion.CART1];
+        this.waitstates32[MemoryRegion.CART2] = this.waitstates32[MemoryRegion.CART2 + 1] = this.waitstates[MemoryRegion.CART2] + 1 + this.waitstatesSeq[MemoryRegion.CART2];
+
+        this.waitstatesSeq32[MemoryRegion.CART0] = this.waitstatesSeq32[MemoryRegion.CART0 + 1] = 2 * this.waitstatesSeq[MemoryRegion.CART0] + 1;
+        this.waitstatesSeq32[MemoryRegion.CART1] = this.waitstatesSeq32[MemoryRegion.CART1 + 1] = 2 * this.waitstatesSeq[MemoryRegion.CART1] + 1;
+        this.waitstatesSeq32[MemoryRegion.CART2] = this.waitstatesSeq32[MemoryRegion.CART2 + 1] = 2 * this.waitstatesSeq[MemoryRegion.CART2] + 1;
+
         if (prefetch) {
-            this.waitstatesPrefetch[this.REGION_CART0] = this.waitstatesPrefetch[this.REGION_CART0 + 1] = 0;
-            this.waitstatesPrefetch[this.REGION_CART1] = this.waitstatesPrefetch[this.REGION_CART1 + 1] = 0;
-            this.waitstatesPrefetch[this.REGION_CART2] = this.waitstatesPrefetch[this.REGION_CART2 + 1] = 0;
-    
-            this.waitstatesPrefetch32[this.REGION_CART0] = this.waitstatesPrefetch32[this.REGION_CART0 + 1] = 0;
-            this.waitstatesPrefetch32[this.REGION_CART1] = this.waitstatesPrefetch32[this.REGION_CART1 + 1] = 0;
-            this.waitstatesPrefetch32[this.REGION_CART2] = this.waitstatesPrefetch32[this.REGION_CART2 + 1] = 0;
+            this.waitstatesPrefetch[MemoryRegion.CART0] = this.waitstatesPrefetch[MemoryRegion.CART0 + 1] = 0;
+            this.waitstatesPrefetch[MemoryRegion.CART1] = this.waitstatesPrefetch[MemoryRegion.CART1 + 1] = 0;
+            this.waitstatesPrefetch[MemoryRegion.CART2] = this.waitstatesPrefetch[MemoryRegion.CART2 + 1] = 0;
+
+            this.waitstatesPrefetch32[MemoryRegion.CART0] = this.waitstatesPrefetch32[MemoryRegion.CART0 + 1] = 0;
+            this.waitstatesPrefetch32[MemoryRegion.CART1] = this.waitstatesPrefetch32[MemoryRegion.CART1 + 1] = 0;
+            this.waitstatesPrefetch32[MemoryRegion.CART2] = this.waitstatesPrefetch32[MemoryRegion.CART2 + 1] = 0;
         } else {
-            this.waitstatesPrefetch[this.REGION_CART0] = this.waitstatesPrefetch[this.REGION_CART0 + 1] = this.waitstatesSeq[this.REGION_CART0];
-            this.waitstatesPrefetch[this.REGION_CART1] = this.waitstatesPrefetch[this.REGION_CART1 + 1] = this.waitstatesSeq[this.REGION_CART1];
-            this.waitstatesPrefetch[this.REGION_CART2] = this.waitstatesPrefetch[this.REGION_CART2 + 1] = this.waitstatesSeq[this.REGION_CART2];
-    
-            this.waitstatesPrefetch32[this.REGION_CART0] = this.waitstatesPrefetch32[this.REGION_CART0 + 1] = this.waitstatesSeq32[this.REGION_CART0];
-            this.waitstatesPrefetch32[this.REGION_CART1] = this.waitstatesPrefetch32[this.REGION_CART1 + 1] = this.waitstatesSeq32[this.REGION_CART1];
-            this.waitstatesPrefetch32[this.REGION_CART2] = this.waitstatesPrefetch32[this.REGION_CART2 + 1] = this.waitstatesSeq32[this.REGION_CART2];
+            this.waitstatesPrefetch[MemoryRegion.CART0] = this.waitstatesPrefetch[MemoryRegion.CART0 + 1] = this.waitstatesSeq[MemoryRegion.CART0];
+            this.waitstatesPrefetch[MemoryRegion.CART1] = this.waitstatesPrefetch[MemoryRegion.CART1 + 1] = this.waitstatesSeq[MemoryRegion.CART1];
+            this.waitstatesPrefetch[MemoryRegion.CART2] = this.waitstatesPrefetch[MemoryRegion.CART2 + 1] = this.waitstatesSeq[MemoryRegion.CART2];
+
+            this.waitstatesPrefetch32[MemoryRegion.CART0] = this.waitstatesPrefetch32[MemoryRegion.CART0 + 1] = this.waitstatesSeq32[MemoryRegion.CART0];
+            this.waitstatesPrefetch32[MemoryRegion.CART1] = this.waitstatesPrefetch32[MemoryRegion.CART1 + 1] = this.waitstatesSeq32[MemoryRegion.CART1];
+            this.waitstatesPrefetch32[MemoryRegion.CART2] = this.waitstatesPrefetch32[MemoryRegion.CART2 + 1] = this.waitstatesSeq32[MemoryRegion.CART2];
         }
     }
-    
-    private getISave(): ISave{
-        if(!this.save){
+
+    private getISave(): ISave {
+        if (!this.save) {
             throw new Error("save is null");
         }
 
@@ -795,18 +819,18 @@ export default class GameBoyAdvanceMMU implements IGBAMMU, IClose, IClear {
     /**
      * 
      */
-    saveNeedsFlush():boolean {
+    saveNeedsFlush(): boolean {
         return this.getISave().writePending;
     }
-    
+
     /**
      * 
      */
-    flushSave():void {        
+    flushSave(): void {
         this.getISave().writePending = false;
     }
-    
+
     allocGPIO(rom: IROMView): IGPIO {
-        return new GameBoyAdvanceGPIO(this.core as IContext, rom);
+        return new GameBoyAdvanceGPIO(this.core.getGBA(), rom);
     }
 }

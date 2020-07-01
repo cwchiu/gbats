@@ -1,13 +1,23 @@
-import {ISave, IGBA, IClose, IGBAMMU, ICart, IFrost, ILogger, ILog, IAssert, ICPU, IClear, IContext} from "./interfaces.ts";
-import GameBoyAdvanceMMU from "./mmu/GameBoyAdvanceMMU.ts";
-import ARMCore from "./core/ARMCore.ts";
+import { MMURegion, IVideo, ICanvasHtmlElement, IAudio, IKeypad, ISIO, IIO, IIRQ, IGBA, IClose, IGBAMMU, ICart, IFrost, ILogger, ILog, IAssert, ICPU, IClear, IContext, IRenderPath, IMemoryView } from "./interfaces.ts";
+import { factoryIO, factorySIO } from "./gpio/mod.ts";
+import { factoryAudio } from "./audio/mod.ts";
+import { factoryVideo } from "./video/mod.ts";
+import { factoryKeypad } from "./keypad/mod.ts";
+import { factoryIRQ } from "./irq/mod.ts";
+import { factoryMMU } from "./mmu/mod.ts";
+import { factoryCPU } from "./core/mod.ts";
+
+interface Arg1Func {
+    (value:number): void
+}
 
 class GameBoyAdvance implements IGBA, IClose, IContext, ILog, IAssert {
-    mmu: IGBAMMU | IClose | IClear
-    rom: ICart|null
-    cpu: IClose|ICPU
-    log: ILogger|null = null
-
+    indirectCanvas: ICanvasHtmlElement | null = null
+    targetCanvas: ICanvasHtmlElement | null = null
+    private queue: number = 0
+    reportFPS: null | Arg1Func = null
+    rom: ICart | null
+    log: ILogger | null = null
     static LOG_ERROR = 1
     static LOG_WARN = 2
     static LOG_STUB = 4
@@ -16,113 +26,166 @@ class GameBoyAdvance implements IGBA, IClose, IContext, ILog, IAssert {
     readonly SYS_ID = 'com.endrift.gbajs'
 
     logLevel: number
-    doStep: ()=>boolean
+    doStep: () => boolean
     seenFrame: boolean
     paused: boolean
+    private mmu: IGBAMMU | IClose | IClear
+    private cpu: IClose | ICPU
+    private irq: IIRQ | IClose
+    private io: IIO | IClose | IClear
+    private sio: ISIO | IClear
+    private audio: IAudio | IClose | IClear
+    private video: IVideo | IClose | IClear
+    private keypad: IKeypad
+    throttle: number = 0
+    lastVblank: number = 0
+    seenSave: boolean = false
 
-    constructor() {   
+    constructor() {
         this.logLevel = GameBoyAdvance.LOG_ERROR | GameBoyAdvance.LOG_WARN;
-    
+
         this.rom = null;
-    
-        this.cpu = new ARMCore();
-        this.mmu = new GameBoyAdvanceMMU()
-        this.irq = new GameBoyAdvanceInterruptHandler();
-        this.io = new GameBoyAdvanceIO();
-        this.audio = new GameBoyAdvanceAudio();
-        this.video = new GameBoyAdvanceVideo();
-        this.keypad = new GameBoyAdvanceKeypad();
-        this.sio = new GameBoyAdvanceSIO();
-    
+        this.cpu = factoryCPU();
+        this.mmu = factoryMMU(this);
+        this.irq = factoryIRQ();
+        this.io = factoryIO();
+        this.audio = factoryAudio();
+        this.video = factoryVideo();
+        this.keypad = factoryKeypad();
+        this.sio = factorySIO();
+
         // TODO: simplify this graph
-        this.cpu.mmu = this.mmu;
-        this.cpu.irq = this.irq;
-    
-        this.mmu.cpu = this.cpu;
-        this.mmu.core = this;
-    
-        this.irq.cpu = this.cpu;
-        this.irq.io = this.io;
-        this.irq.audio = this.audio;
-        this.irq.video = this.video;
-        this.irq.core = this;
-    
-        this.io.cpu = this.cpu;
-        this.io.audio = this.audio;
-        this.io.video = this.video;
-        this.io.keypad = this.keypad;
-        this.io.sio = this.sio;
-        this.io.core = this;
-    
-        this.audio.cpu = this.cpu;
-        this.audio.core = this;
-    
-        this.video.cpu = this.cpu;
-        this.video.core = this;
-    
-        this.keypad.core = this;
-    
-        this.sio.core = this;
-    
+        // this.cpu.mmu = this.mmu;
+        // this.cpu.irq = this.irq;
+
+        // this.mmu.cpu = this.cpu;
+        // this.mmu.core = this;
+
+        // this.irq.cpu = this.cpu;
+        // this.irq.io = this.io;
+        // this.irq.audio = this.audio;
+        // this.irq.video = this.video;
+        // this.irq.core = this;
+
+        // this.io.cpu = this.cpu;
+        // this.io.audio = this.audio;
+        // this.io.video = this.video;
+        // this.io.keypad = this.keypad;
+        // this.io.sio = this.sio;
+        // this.io.core = this;
+
+        // this.audio.cpu = this.cpu;
+        // this.audio.core = this;
+        // 
+        // this.video.cpu = this.cpu;
+        // this.video.core = this;
+        // 
+        // this.keypad.core = this;
+        // 
+        // this.sio.core = this;
+
         this.keypad.registerHandlers();
         this.doStep = this.waitFrame;
         this.paused = false;
-    
+
         this.seenFrame = false;
         this.seenSave = false;
         this.lastVblank = 0;
-    
-        this.queue = null;
+
+        this.queue = 0;
         this.reportFPS = null;
         this.throttle = 16; // This is rough, but the 2/3ms difference gives us a good overhead
-    
+
         const self = this;
         // @ts-ignore
-        window.queueFrame (f) {
+        window.queueFrame = function (f) {
+            // @ts-ignore
             self.queue = window.setTimeout(f, self.throttle);
         };
-    
+
         // @ts-ignore
         window.URL = window.URL || window.webkitURL;
-    
-        this.video.vblankCallback() {
+
+        (this.video as IVideo).vblankCallback = function () {
             self.seenFrame = true;
         };
     }
+
+    getLog():ILog {
+        return this as ILog;
+    }
+
+    getGBA():IGBA {
+        return this as IGBA;
+    }
     
+    getContext():IContext {
+        return this as IContext;
+    }
+
+    getIO(): IIO | IClose | IClear {
+        return this.io;
+    }
+
+    getVideo(): IVideo | IClose | IClear {
+        return this.video;
+    }
+
+    getAudio(): IAudio | IClose | IClear {
+        return this.audio;
+    }
+
+    getIRQ(): IIRQ | IClose | IClear {
+        return this.irq;
+    }
+
+    getCPU(): ICPU | IClose | IClear {
+        return this.cpu;
+    }
+
+    getMMU(): IGBAMMU | IClose | IClear {
+        return this.mmu;
+    }
+
     /**
      * 
      * @param canvas 
      */
-    setCanvas(canvas: unknown):void {
-        var self = this;
+    setCanvas(canvas: ICanvasHtmlElement): void {
+        const self = this;
+
         if (canvas.offsetWidth != 240 || canvas.offsetHeight != 160) {
+            // @ts-ignore
             this.indirectCanvas = document.createElement("canvas");
+            if(!this.indirectCanvas){
+                throw new Error("create canvas error");
+            }
             this.indirectCanvas.setAttribute("height", "160");
             this.indirectCanvas.setAttribute("width", "240");
             this.targetCanvas = canvas;
             this.setCanvasDirect(this.indirectCanvas);
-            var targetContext = canvas.getContext('2d');
-            this.video.drawCallback() {
+            // @ts-ignore
+            const targetContext = canvas.getContext('2d');
+            (this.video as IVideo).drawCallback = function () {
+                // @ts-ignore
                 targetContext.drawImage(self.indirectCanvas, 0, 0, canvas.offsetWidth, canvas.offsetHeight);
             }
         } else {
             this.setCanvasDirect(canvas);
-            var self = this;
         }
     }
-    
+
     /**
      * 
      * @param canvas 
      */
-    setCanvasDirect(canvas: unknown):void {
+    setCanvasDirect(canvas: unknown): void {
         // @ts-ignore
         this.context = canvas.getContext('2d');
         // @ts-ignore
         this.video.setBacking(this.context);
     }
-    
+
     private getGBAMMU(): IGBAMMU {
         return this.mmu as IGBAMMU;
     }
@@ -132,17 +195,17 @@ class GameBoyAdvance implements IGBA, IClose, IContext, ILog, IAssert {
      * @param bios 
      * @param real 
      */
-    setBios(bios: ArrayBuffer, real: boolean = false):void {
+    setBios(bios: ArrayBuffer, real: boolean = false): void {
         this.getGBAMMU().loadBios(bios, real);
     }
-    
+
     /**
      * 
      * @param rom 
      */
     setRom(rom: ArrayBuffer): boolean {
         this.reset();
-    
+
         this.rom = this.getGBAMMU().loadRom(rom, true);
         if (!this.rom) {
             return false;
@@ -150,25 +213,25 @@ class GameBoyAdvance implements IGBA, IClose, IContext, ILog, IAssert {
         this.retrieveSavedata();
         return true;
     }
-    
+
     /**
      * 
      */
     hasRom(): boolean {
         return !!this.rom;
     }
-    
+
     /**
      * 
      * @param romFile 
      * @param callback 
      */
-    loadRomFromFile(romFile: unknown, callback: (result: boolean)=>void) {
+    loadRomFromFile(romFile: unknown, callback: (result: boolean) => void) {
         // @ts-ignore
         const reader = new FileReader();
         const self = this;
         // @ts-ignore
-        reader.onload(e) {
+        reader.onload = function(e) {
             // @ts-ignore
             var result = self.setRom(e.target.result);
             if (callback) {
@@ -177,109 +240,112 @@ class GameBoyAdvance implements IGBA, IClose, IContext, ILog, IAssert {
         }
         reader.readAsArrayBuffer(romFile);
     }
-    
+
     /**
      * 
      */
-    reset():void {
-        this.audio.pause(true);
-    
+    reset(): void {
+        (this.audio as IAudio).pause(true);
+
         (this.mmu as IClear).clear();
-        this.io.clear();
-        this.audio.clear();
-        this.video.clear();
-        this.sio.clear();
-    
+        (this.io as IClear).clear();
+        (this.audio as IClear).clear();
+        (this.video as IClear).clear();
+        (this.sio as IClear).clear();
+
         const gbammu = this.getGBAMMU();
-        gbammu.mmap(gbammu.REGION_IO, this.io);
-        gbammu.mmap(gbammu.REGION_PALETTE_RAM, this.video.renderPath.palette);
-        gbammu.mmap(gbammu.REGION_VRAM, this.video.renderPath.vram);
-        gbammu.mmap(gbammu.REGION_OAM, this.video.renderPath.oam);
-    
+        gbammu.mmap(MMURegion.REGION_IO, (this.io as IIO).getMemoryView() );
+        const render = (this.video as IVideo).renderPath as IRenderPath;
+        gbammu.mmap(MMURegion.REGION_PALETTE_RAM, render.palette!.getMemoryView());
+        gbammu.mmap(MMURegion.REGION_VRAM, render.vram!.getMemoryView());
+        gbammu.mmap(MMURegion.REGION_OAM, render.oam!.getMemoryView());
+
         (this.cpu as ICPU).resetCPU(0);
     }
-    
+
     /**
      * 
      */
-    step():void {
+    step(): void {
         while (this.doStep()) {
             (this.cpu as ICPU).step();
         }
     }
-    
+
     /**
      * 
      */
-    waitFrame():boolean {
+    waitFrame(): boolean {
         const seen = this.seenFrame;
         this.seenFrame = false;
         return !seen;
     }
-    
+
     /**
      * 
      */
-    pause():void {
+    pause(): void {
         this.paused = true;
-        this.audio.pause(true);
-        if (this.queue) {
+        (this.audio as IAudio).pause(true);
+        if (this.queue > 0) {
             clearTimeout(this.queue);
-            this.queue = null;
+            this.queue = 0;
         }
     }
-    
+
     /**
      * 
      */
     advanceFrame(): void {
         this.step();
+        const mmu = this.mmu as IGBAMMU;
         if (this.seenSave) {
-            if (!this.mmu.saveNeedsFlush()) {
+            if (!mmu.saveNeedsFlush()) {
                 this.storeSavedata();
                 this.seenSave = false;
             } else {
-                this.mmu.flushSave();
+                mmu.flushSave();
             }
-        } else if (this.mmu.saveNeedsFlush()) {
+        } else if (mmu.saveNeedsFlush()) {
             this.seenSave = true;
-            this.mmu.flushSave();
+            mmu.flushSave();
         }
     }
-    
+
     /**
      * 
      */
     runStable(): void {
-        if (this.interval) {
-            return; // Already running
-        }
+        // if (this.interval) {
+            // return; // Already running
+        // }
         var self = this;
         var timer = 0;
         var frames = 0;
-        var runFunc;
+        let runFunc: () => void;
         var start = Date.now();
         this.paused = false;
-        this.audio.pause(false);
-    
+        (this.audio as IAudio).pause(false);
+
         if (this.reportFPS) {
-            runFunc() {
+            runFunc = function () {
                 try {
                     timer += Date.now() - start;
                     if (self.paused) {
                         return;
                     } else {
+                        // @ts-ignore
                         queueFrame(runFunc);
                     }
                     start = Date.now();
                     self.advanceFrame();
                     ++frames;
                     if (frames == 60) {
-                        self.reportFPS((frames * 1000) / timer);
+                        self.reportFPS!((frames * 1000) / timer);
                         frames = 0;
                         timer = 0;
                     }
-                } catch(exception) {
+                } catch (exception) {
                     self.ERROR(exception);
                     if (exception.stack) {
                         self.logStackTrace(exception.stack.split('\n'));
@@ -288,15 +354,16 @@ class GameBoyAdvance implements IGBA, IClose, IContext, ILog, IAssert {
                 }
             };
         } else {
-            runFunc() {
+            runFunc = function () {
                 try {
                     if (self.paused) {
                         return;
                     } else {
+                        // @ts-ignore
                         queueFrame(runFunc);
                     }
                     self.advanceFrame();
-                } catch(exception) {
+                } catch (exception) {
                     self.ERROR(exception);
                     if (exception.stack) {
                         self.logStackTrace(exception.stack.split('\n'));
@@ -305,17 +372,18 @@ class GameBoyAdvance implements IGBA, IClose, IContext, ILog, IAssert {
                 }
             };
         }
+        // @ts-ignore
         queueFrame(runFunc);
     }
-    
+
     /**
      * 載入遊戲進度
      * @param data 
      */
     setSavedata(data: ArrayBuffer): void {
-        this.mmu.loadSavedata(data);
+        (this.mmu as IGBAMMU).loadSavedata(data);
     }
-    
+
     /**
      * 載入遊戲進度
      * @param saveFile 
@@ -326,13 +394,13 @@ class GameBoyAdvance implements IGBA, IClose, IContext, ILog, IAssert {
         const self = this;
 
         // @ts-ignore
-        reader.onload(e) { 
+        reader.onload = function (e) {
             // @ts-ignore
-            self.setSavedata(e.target.result); 
+            self.setSavedata(e.target.result);
         };
         reader.readAsArrayBuffer(saveFile);
     }
-    
+
     /**
      * 解碼狀態資料
      * @param string 
@@ -340,7 +408,7 @@ class GameBoyAdvance implements IGBA, IClose, IContext, ILog, IAssert {
     decodeSavedata(string: string): void {
         this.setSavedata(this.decodeBase64(string));
     }
-    
+
     /**
      * Base64 Decode
      * @param string 
@@ -356,14 +424,14 @@ class GameBoyAdvance implements IGBA, IClose, IContext, ILog, IAssert {
         let view = new Uint8Array(buffer);
         const bits = string.match(/..../g);
 
-        if(!bits){
+        if (!bits) {
             throw new Error("data invalid");
         }
 
         let i;
         for (i = 0; i + 2 < length; i += 3) {
             const item = bits.shift();
-            if(!item){
+            if (!item) {
                 throw new Error("data invalid");
             }
             const s = atob(item);
@@ -374,24 +442,24 @@ class GameBoyAdvance implements IGBA, IClose, IContext, ILog, IAssert {
 
         if (i < length) {
             const item = bits.shift();
-            if(!item){
+            if (!item) {
                 throw new Error("data invalid");
-            }            
+            }
             const s = atob(item);
             view[i++] = s.charCodeAt(0);
             if (s.length > 1) {
                 view[i++] = s.charCodeAt(1);
             }
         }
-    
+
         return buffer;
     }
-    
+
     /**
      * Base64 Encode
      * @param view 
      */
-    encodeBase64(view: DataView):string {
+    encodeBase64(view: DataView): string {
         const data = [];
         const wordstring = [];
         for (let i = 0; i < view.byteLength; ++i) {
@@ -408,11 +476,11 @@ class GameBoyAdvance implements IGBA, IClose, IContext, ILog, IAssert {
         }
         return data.join('');
     }
-    
+
     /**
      * 下載遊戲進度
      */
-    downloadSavedata():boolean {
+    downloadSavedata(): boolean {
         const sram = (this.mmu as IGBAMMU).save;
         if (!sram) {
             this.WARN("No save data available");
@@ -433,13 +501,21 @@ class GameBoyAdvance implements IGBA, IClose, IContext, ILog, IAssert {
 
         return true;
     }
-    
+
     /**
      * 儲存遊戲進度
      */
     storeSavedata(): void {
         const gbammu = (this.mmu as IGBAMMU);
         const sram = gbammu.save;
+        if (!sram) {
+            throw new Error("GBA SRAM no init");
+        }
+
+        if (!gbammu.cart) {
+            throw new Error("GBA MMU cart no init");
+        }
+
         try {
             // @ts-ignore
             const storage = window.localStorage;
@@ -454,6 +530,9 @@ class GameBoyAdvance implements IGBA, IClose, IContext, ILog, IAssert {
      */
     retrieveSavedata(): boolean {
         const gbammu = (this.mmu as IGBAMMU);
+        if (!gbammu.cart) {
+            throw new Error("GBA MMU cart no init");
+        }
         try {
             // @ts-ignore
             const storage = window.localStorage;
@@ -467,7 +546,7 @@ class GameBoyAdvance implements IGBA, IClose, IContext, ILog, IAssert {
         }
         return false;
     }
-    
+
     /**
      * 
      */
@@ -475,13 +554,13 @@ class GameBoyAdvance implements IGBA, IClose, IContext, ILog, IAssert {
         return {
             'cpu': (this.cpu as IClose).freeze(),
             'mmu': (this.mmu as IClose).freeze(),
-            'irq': this.irq.freeze(),
-            'io': this.io.freeze(),
-            'audio': this.audio.freeze(),
-            'video': this.video.freeze()
+            'irq': (this.irq as IClose).freeze(),
+            'io': (this.io as IClose).freeze(),
+            'audio': (this.audio as IClose).freeze(),
+            'video': (this.video as IClose).freeze()
         }
     }
-    
+
     /**
      * 
      * @param frost 
@@ -489,12 +568,12 @@ class GameBoyAdvance implements IGBA, IClose, IContext, ILog, IAssert {
     defrost(frost: IFrost): void {
         (this.cpu as IClose).defrost(frost.cpu);
         (this.mmu as IClose).defrost(frost.mmu);
-        this.audio.defrost(frost.audio);
-        this.video.defrost(frost.video);
-        this.irq.defrost(frost.irq);
-        this.io.defrost(frost.io);
+        (this.audio as IClose).defrost(frost.audio);
+        (this.video as IClose).defrost(frost.video);
+        (this.irq as IClose).defrost(frost.irq);
+        (this.io as IClose).defrost(frost.io);
     }
-    
+
     /**
      * 
      * @param logger 
@@ -502,13 +581,13 @@ class GameBoyAdvance implements IGBA, IClose, IContext, ILog, IAssert {
     setLogger(logger: ILogger) {
         this.log = logger;
     }
-    
+
     /**
      * 
      * 
      */
-    logStackTrace(stack:Array<unknown>):void {
-        if(!this.log){
+    logStackTrace(stack: Array<unknown>): void {
+        if (!this.log) {
             return;
         }
 
@@ -521,13 +600,13 @@ class GameBoyAdvance implements IGBA, IClose, IContext, ILog, IAssert {
             this.log(-1, '> ' + stack[i]);
         }
     }
-    
+
     /**
      * 
      * @param error 
      */
     ERROR(error: string): void {
-        if(!this.log){
+        if (!this.log) {
             return;
         }
 
@@ -535,13 +614,13 @@ class GameBoyAdvance implements IGBA, IClose, IContext, ILog, IAssert {
             this.log(GameBoyAdvance.LOG_ERROR, error);
         }
     }
-    
+
     /**
      * 
      * @param warn 
      */
-    WARN(warn: string):void {
-        if(!this.log){
+    WARN(warn: string): void {
+        if (!this.log) {
             return;
         }
 
@@ -549,13 +628,13 @@ class GameBoyAdvance implements IGBA, IClose, IContext, ILog, IAssert {
             this.log(GameBoyAdvance.LOG_WARN, warn);
         }
     }
-    
+
     /**
      * 
      * @param func 
      */
     STUB(func: string): void {
-        if(!this.log){
+        if (!this.log) {
             return;
         }
 
@@ -563,13 +642,13 @@ class GameBoyAdvance implements IGBA, IClose, IContext, ILog, IAssert {
             this.log(GameBoyAdvance.LOG_STUB, func);
         }
     }
-    
+
     /**
      * 
      * @param info 
      */
     INFO(info: string): void {
-        if(!this.log){
+        if (!this.log) {
             return;
         }
 
@@ -577,21 +656,21 @@ class GameBoyAdvance implements IGBA, IClose, IContext, ILog, IAssert {
             this.log(GameBoyAdvance.LOG_INFO, info);
         }
     }
-    
+
     /**
      * 
      * @param info 
      */
     DEBUG(info: string): void {
-        if(!this.log){
+        if (!this.log) {
             return;
         }
-        
+
         if (this.logLevel & GameBoyAdvance.LOG_DEBUG) {
             this.log(GameBoyAdvance.LOG_DEBUG, info);
         }
     }
-    
+
     /**
      * 
      * @param err 
@@ -599,7 +678,7 @@ class GameBoyAdvance implements IGBA, IClose, IContext, ILog, IAssert {
     ASSERT_UNREACHED(err: Error): never {
         throw new Error("Should be unreached: " + err);
     }
-    
+
     /**
      * 
      * @param test 
@@ -609,5 +688,9 @@ class GameBoyAdvance implements IGBA, IClose, IContext, ILog, IAssert {
         if (!test) {
             throw new Error("Assertion failed: " + err);
         }
-    }       
+    }
 }
+
+export {
+    GameBoyAdvance
+};

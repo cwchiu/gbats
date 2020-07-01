@@ -1,7 +1,7 @@
 import {
     IGBAMMU, IIRQ, ICPU, ICacheData, ICompilerArm, ICompilerThumb, IOp, IClose, ICloseData,
     OpExecMode, ARMMode, ARMBank, IConditionOperator, IBIOS, ICPUOperator, IInstruction,
-    NumberHashtable, ICPUAddress
+    NumberHashtable, ICPUAddress, IClear
 } from "../interfaces.ts";
 import ARMCoreArm from "./ARMCoreArm.ts";
 import ARMCoreThumb from "./ARMCoreThumb.ts";
@@ -18,7 +18,7 @@ enum BaseAddress {
     DABT = 0x00000010,
     IRQ = 0x00000018,
     FIQ = 0x0000001C
-} 
+}
 
 /**
  * ARM 核心
@@ -31,7 +31,7 @@ export default class ARMCore implements ICPU, IClose {
     // @ts-ignore
     mmu: IGBAMMU;
     // @ts-ignore
-    irq: IIRQ;
+    irq: IIRQ | IClear;
     page: ICacheData | null = null
     conds: Array<IConditionOperator | null> = []
     pageMask: number = 0
@@ -132,7 +132,7 @@ export default class ARMCore implements ICPU, IClose {
 
         this.instruction = null;
 
-        this.irq.clear();
+        (this.irq as IClear).clear();
     }
 
     /**
@@ -184,7 +184,7 @@ export default class ARMCore implements ICPU, IClose {
                 this.instruction = null;
             }
         }
-        this.irq.updateTimers();
+        (this.irq as IIRQ).updateTimers();
     }
 
     freeze(): ICloseData {
@@ -389,7 +389,7 @@ export default class ARMCore implements ICPU, IClose {
         this.fetchPage(address);
         if (!this.page) {
             throw new Error("page is invalid");
-        }        
+        }
         const offset = (address & this.pageMask) >> 1;
         next = this.page.thumb[offset];
         if (next) {
@@ -520,7 +520,7 @@ export default class ARMCore implements ICPU, IClose {
         this.cpsrC = spsr & 0x20000000;
         this.cpsrV = spsr & 0x10000000;
 
-        this.irq.testIRQ();
+        (this.irq as IIRQ).testIRQ();
     }
 
     /**
