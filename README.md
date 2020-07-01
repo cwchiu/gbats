@@ -2,8 +2,27 @@ GBA.ts
 ======
 
 * fork from [endrift/gbajs](https://github.com/endrift/gbajs)
-* 練習 Typescript
+* 練習 Typescript 
 * 學習 GBA 模擬器實現
+
+## 開發環境
+
+* Windows 10
+* deno 1.1.2
+
+## 開始使用
+
+編譯輸出 .js
+
+> deno bundle src\mod.ts dist\gba.js
+
+啟動靜態服務器
+
+> deno run --allow-net --allow-read server.ts
+
+瀏覽器開啟
+
+> http://127.0.0.1:8080/index-ts.html
 
 ## 原始目錄結構
 
@@ -51,7 +70,13 @@ GBA.ts
 * mmu.save.buffer 取得狀態 ArrayBuffer 
 * Blob to URL 將 ArrayBuffer 下載
 
+## 架構
+
+TODO
+
 ## Arm/Thumb 指令集
+
+TODO
 
 
 ## 相關專案
