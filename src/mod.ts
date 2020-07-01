@@ -45,44 +45,14 @@ class GameBoyAdvance implements IGBA, IClose, IContext, ILog, IAssert {
         this.logLevel = GameBoyAdvance.LOG_ERROR | GameBoyAdvance.LOG_WARN;
 
         this.rom = null;
-        this.cpu = factoryCPU();
+        this.cpu = factoryCPU(this);
         this.mmu = factoryMMU(this);
-        this.irq = factoryIRQ();
-        this.io = factoryIO();
-        this.audio = factoryAudio();
-        this.video = factoryVideo();
+        this.irq = factoryIRQ(this);
+        this.io = factoryIO(this);
+        this.audio = factoryAudio(this);
+        this.video = factoryVideo(this);
         this.keypad = factoryKeypad();
-        this.sio = factorySIO();
-
-        // TODO: simplify this graph
-        // this.cpu.mmu = this.mmu;
-        // this.cpu.irq = this.irq;
-
-        // this.mmu.cpu = this.cpu;
-        // this.mmu.core = this;
-
-        // this.irq.cpu = this.cpu;
-        // this.irq.io = this.io;
-        // this.irq.audio = this.audio;
-        // this.irq.video = this.video;
-        // this.irq.core = this;
-
-        // this.io.cpu = this.cpu;
-        // this.io.audio = this.audio;
-        // this.io.video = this.video;
-        // this.io.keypad = this.keypad;
-        // this.io.sio = this.sio;
-        // this.io.core = this;
-
-        // this.audio.cpu = this.cpu;
-        // this.audio.core = this;
-        // 
-        // this.video.cpu = this.cpu;
-        // this.video.core = this;
-        // 
-        // this.keypad.core = this;
-        // 
-        // this.sio.core = this;
+        this.sio = factorySIO(this);
 
         this.keypad.registerHandlers();
         this.doStep = this.waitFrame;
@@ -109,6 +79,14 @@ class GameBoyAdvance implements IGBA, IClose, IContext, ILog, IAssert {
         (this.video as IVideo).vblankCallback = function () {
             self.seenFrame = true;
         };
+    }
+
+    getSIO(): ISIO | IClear {
+        return this.sio as ISIO;        
+    }
+
+    getKeypad():IKeypad {
+        return this.keypad;
     }
 
     getLog():ILog {

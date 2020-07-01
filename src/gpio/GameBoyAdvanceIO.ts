@@ -15,12 +15,12 @@ export default class GameBoyAdvanceIO implements IClose, IIO, IClear, IMemoryVie
     mask: number = 0
 
     registers: Uint16Array | null = null
-    cpu: ICPU | null = null
-    core: ILog | IGBA | IContext | null = null
-    video: IVideo | null = null
-    audio: IAudio | null = null;
-    keypad: IKeypad | null = null
-    sio: ISIO | null = null
+    // cpu: ICPU | null = null
+    core: IContext
+    // video: IVideo | null = null
+    // audio: IAudio | null = null;
+    // keypad: IKeypad | null = null
+    // sio: ISIO | null = null
     // Video
     DISPCNT = 0x000
     GREENSWP = 0x002
@@ -165,9 +165,8 @@ export default class GameBoyAdvanceIO implements IClose, IIO, IClear, IMemoryVie
     DEFAULT_BGPD = 1;
     DEFAULT_RCNT = 0x8000;
 
-    constructor() {
-
-
+    constructor(ctx: IContext) {
+        this.core = ctx;
     }
 
 
@@ -255,7 +254,7 @@ export default class GameBoyAdvanceIO implements IClose, IIO, IClear, IMemoryVie
                 return this.loadU16(offset) & 0xFFFF;
             case this.JOY_RECV:
             case this.JOY_TRANS:
-                (this.core as ILog).STUB('Unimplemented JOY register read: 0x' + offset.toString(16));
+                this.getLog().STUB('Unimplemented JOY register read: 0x' + offset.toString(16));
                 return 0;
         }
 
@@ -270,10 +269,6 @@ export default class GameBoyAdvanceIO implements IClose, IIO, IClear, IMemoryVie
         const odd = offset & 0x0001;
         const value = this.loadU16(offset & 0xFFFE);
         return (value >>> (odd << 3)) & 0xFF;
-    }
-
-    private getGBA(): IGBA {
-        return this.core as IGBA
     }
 
     private getGBAContext(): IContext {
@@ -298,25 +293,15 @@ export default class GameBoyAdvanceIO implements IClose, IIO, IClear, IMemoryVie
     }
 
     private getCPU(): ICPU {
-        if (!this.cpu) {
-            throw new Error("cpu no init")
-        }
-        return this.cpu;
+        return this.core.getCPU() as ICPU;
     }
 
     private getKeypad(): IKeypad {
-        if (!this.keypad) {
-            throw new Error("keypad no init");
-        }
-        return this.keypad;
+        return this.core.getKeypad();
     }
 
     private getSIO(): ISIO {
-        if (!this.sio) {
-            throw new Error("sio no init");
-        }
-
-        return this.sio;
+        return this.core.getSIO() as ISIO;
     }
 
     /**
@@ -418,7 +403,7 @@ export default class GameBoyAdvanceIO implements IClose, IIO, IClear, IMemoryVie
             this.FIFO_B_LO,
             this.FIFO_B_HI,
         ].includes(offset)) {
-            (this.core as ILog).WARN('Read for write-only register: 0x' + offset.toString(16));
+            this.core.getLog().WARN('Read for write-only register: 0x' + offset.toString(16));
             return this.getGBAMMUView().loadU16(0);
         }
 
@@ -449,7 +434,7 @@ export default class GameBoyAdvanceIO implements IClose, IIO, IClear, IMemoryVie
             case this.SOUND4CNT_HI:
                 return registerValue & 0x40FF;
             case this.SOUNDCNT_X:
-                (this.core as ILog).STUB('Unimplemented sound register read: SOUNDCNT_X');
+                this.core.getLog().STUB('Unimplemented sound register read: SOUNDCNT_X');
                 return registerValue | 0x0000;
 
             // Timers
@@ -469,10 +454,10 @@ export default class GameBoyAdvanceIO implements IClose, IIO, IClear, IMemoryVie
                 keypad.pollGamepads();
                 return keypad.currentDown;
             case this.KEYCNT:
-                (this.core as ILog).STUB('Unimplemented I/O register read: KEYCNT');
+                log.STUB('Unimplemented I/O register read: KEYCNT');
                 return 0;
             case this.MOSAIC:
-                (this.core as ILog).WARN('Read for write-only register: 0x' + offset.toString(16));
+                log.WARN('Read for write-only register: 0x' + offset.toString(16));
                 return 0;
 
             case this.SIOMULTI0:
@@ -497,8 +482,9 @@ export default class GameBoyAdvanceIO implements IClose, IIO, IClear, IMemoryVie
     }
 
     private getLog(): ILog {
-        return this.core as ILog;
+        return this.core.getLog();
     }
+
     store8(offset: number, value: number): void {
         switch (offset) {
             // case this.WININ:
@@ -547,7 +533,7 @@ export default class GameBoyAdvanceIO implements IClose, IIO, IClear, IMemoryVie
                 if (!value) {
                     this.getIRQ().halt();
                 } else {
-                    (this.core as ILog).STUB('Stop');
+                    this.getLog().STUB('Stop');
                 }
                 return;
             default:
@@ -572,477 +558,15 @@ export default class GameBoyAdvanceIO implements IClose, IIO, IClear, IMemoryVie
 
 
     private getVideo(): IVideo {
-        if (!this.video) {
-            throw new Error('video no init');
-        }
-        return this.video;
+        return this.core.getVideo() as IVideo;
     }
+
     private getVideoRender(): IRenderPath {
         return this.getVideo().renderPath as IRenderPath;
     }
 
-    private handleVideo(offset: number, value: number): store16DelegateResult {
-
-        if (!this.registers) {
-            throw new Error("register no init");
-        }
-
-        const video = this.getVideo();
-        const render = this.getVideoRender();
-        switch (offset) {
-            // Video
-            case this.DISPCNT:
-                render.writeDisplayControl(value);
-                break;
-            case this.DISPSTAT:
-                value &= video.DISPSTAT_MASK;
-                video.writeDisplayStat(value);
-                break;
-            case this.BG0CNT:
-                render.writeBackgroundControl(0, value);
-                break;
-            case this.BG1CNT:
-                render.writeBackgroundControl(1, value);
-                break;
-            case this.BG2CNT:
-                render.writeBackgroundControl(2, value);
-                break;
-            case this.BG3CNT:
-                render.writeBackgroundControl(3, value);
-                break;
-            case this.BG0HOFS:
-                render.writeBackgroundHOffset(0, value);
-                break;
-            case this.BG0VOFS:
-                render.writeBackgroundVOffset(0, value);
-                break;
-            case this.BG1HOFS:
-                render.writeBackgroundHOffset(1, value);
-                break;
-            case this.BG1VOFS:
-                render.writeBackgroundVOffset(1, value);
-                break;
-            case this.BG2HOFS:
-                render.writeBackgroundHOffset(2, value);
-                break;
-            case this.BG2VOFS:
-                render.writeBackgroundVOffset(2, value);
-                break;
-            case this.BG3HOFS:
-                render.writeBackgroundHOffset(3, value);
-                break;
-            case this.BG3VOFS:
-                render.writeBackgroundVOffset(3, value);
-                break;
-            case this.BG2X_LO:
-                render.writeBackgroundRefX(2, (this.registers[(offset >> 1) | 1] << 16) | value);
-                break;
-            case this.BG2X_HI:
-                render.writeBackgroundRefX(2, this.registers[(offset >> 1) ^ 1] | (value << 16));
-                break;
-            case this.BG2Y_LO:
-                render.writeBackgroundRefY(2, (this.registers[(offset >> 1) | 1] << 16) | value);
-                break;
-            case this.BG2Y_HI:
-                render.writeBackgroundRefY(2, this.registers[(offset >> 1) ^ 1] | (value << 16));
-                break;
-            case this.BG2PA:
-                render.writeBackgroundParamA(2, value);
-                break;
-            case this.BG2PB:
-                render.writeBackgroundParamB(2, value);
-                break;
-            case this.BG2PC:
-                render.writeBackgroundParamC(2, value);
-                break;
-            case this.BG2PD:
-                render.writeBackgroundParamD(2, value);
-                break;
-            case this.BG3X_LO:
-                render.writeBackgroundRefX(3, (this.registers[(offset >> 1) | 1] << 16) | value);
-                break;
-            case this.BG3X_HI:
-                render.writeBackgroundRefX(3, this.registers[(offset >> 1) ^ 1] | (value << 16));
-                break;
-            case this.BG3Y_LO:
-                render.writeBackgroundRefY(3, (this.registers[(offset >> 1) | 1] << 16) | value);
-                break;
-            case this.BG3Y_HI:
-                render.writeBackgroundRefY(3, this.registers[(offset >> 1) ^ 1] | (value << 16));
-                break;
-            case this.BG3PA:
-                render.writeBackgroundParamA(3, value);
-                break;
-            case this.BG3PB:
-                render.writeBackgroundParamB(3, value);
-                break;
-            case this.BG3PC:
-                render.writeBackgroundParamC(3, value);
-                break;
-            case this.BG3PD:
-                render.writeBackgroundParamD(3, value);
-                break;
-            case this.WIN0H:
-                render.writeWin0H(value);
-                break;
-            case this.WIN1H:
-                render.writeWin1H(value);
-                break;
-            case this.WIN0V:
-                render.writeWin0V(value);
-                break;
-            case this.WIN1V:
-                render.writeWin1V(value);
-                break;
-            case this.WININ:
-                value &= 0x3F3F;
-                render.writeWinIn(value);
-                break;
-            case this.WINOUT:
-                value &= 0x3F3F;
-                render.writeWinOut(value);
-                break;
-            case this.BLDCNT:
-                value &= 0x7FFF;
-                render.writeBlendControl(value);
-                break;
-            case this.BLDALPHA:
-                value &= 0x1F1F;
-                render.writeBlendAlpha(value);
-                break;
-            case this.BLDY:
-                value &= 0x001F;
-                render.writeBlendY(value);
-                break;
-            case this.MOSAIC:
-                render.writeMosaic(value);
-                break;
-            default:
-                return {
-                    goReturn: false,
-                    handle: false
-                };
-        }
-
-        return {
-            goReturn: false,
-            handle: true
-        };
-    }
-
     private getAudio(): IAudio {
-        if (!this.audio) {
-            throw new Error("audio no init");
-        }
-        return this.audio;
-    }
-
-    private handleAudio(offset: number, value: number): store16DelegateResult {
-        const audio = this.getAudio();
-        switch (offset) {
-
-            // Sound
-            case this.SOUND1CNT_LO:
-                value &= 0x007F;
-                audio.writeSquareChannelSweep(0, value);
-                break;
-            case this.SOUND1CNT_HI:
-                audio.writeSquareChannelDLE(0, value);
-                break;
-            case this.SOUND1CNT_X:
-                value &= 0xC7FF;
-                audio.writeSquareChannelFC(0, value);
-                value &= ~0x8000;
-                break;
-            case this.SOUND2CNT_LO:
-                audio.writeSquareChannelDLE(1, value);
-                break;
-            case this.SOUND2CNT_HI:
-                value &= 0xC7FF;
-                audio.writeSquareChannelFC(1, value);
-                value &= ~0x8000;
-                break;
-            case this.SOUND3CNT_LO:
-                value &= 0x00E0;
-                audio.writeChannel3Lo(value);
-                break;
-            case this.SOUND3CNT_HI:
-                value &= 0xE0FF;
-                audio.writeChannel3Hi(value);
-                break;
-            case this.SOUND3CNT_X:
-                value &= 0xC7FF;
-                audio.writeChannel3X(value);
-                value &= ~0x8000;
-                break;
-            case this.SOUND4CNT_LO:
-                value &= 0xFF3F;
-                audio.writeChannel4LE(value);
-                break;
-            case this.SOUND4CNT_HI:
-                value &= 0xC0FF;
-                audio.writeChannel4FC(value);
-                value &= ~0x8000;
-                break;
-            case this.SOUNDCNT_LO:
-                value &= 0xFF77;
-                audio.writeSoundControlLo(value);
-                break;
-            case this.SOUNDCNT_HI:
-                value &= 0xFF0F;
-                audio.writeSoundControlHi(value);
-                break;
-            case this.SOUNDCNT_X:
-                value &= 0x0080;
-                audio.writeEnable(value);
-                break;
-            case this.WAVE_RAM0_LO:
-            case this.WAVE_RAM0_HI:
-            case this.WAVE_RAM1_LO:
-            case this.WAVE_RAM1_HI:
-            case this.WAVE_RAM2_LO:
-            case this.WAVE_RAM2_HI:
-            case this.WAVE_RAM3_LO:
-            case this.WAVE_RAM3_HI:
-                audio.writeWaveData(offset - this.WAVE_RAM0_LO, value, 2);
-                break;
-            default:
-                return {
-                    goReturn: false,
-                    handle: true
-                };
-        }
-        return {
-            goReturn: false,
-            handle: true
-        };
-    }
-
-    private handleDMA(offset: number, value: number): store16DelegateResult {
-        if (!this.registers) {
-            throw new Error("register no init");
-        }
-        const irq = this.getIRQ();
-        switch (offset) {
-            // DMA
-            case this.DMA0SAD_LO:
-            case this.DMA0DAD_LO:
-            case this.DMA1SAD_LO:
-            case this.DMA1DAD_LO:
-            case this.DMA2SAD_LO:
-            case this.DMA2DAD_LO:
-            case this.DMA3SAD_LO:
-            case this.DMA3DAD_LO:
-                this.store32(offset, (this.registers[(offset >> 1) + 1] << 16) | value);
-                return {
-                    goReturn: true,
-                    handle: true
-                };
-
-            case this.DMA0SAD_HI:
-            case this.DMA0DAD_HI:
-            case this.DMA1SAD_HI:
-            case this.DMA1DAD_HI:
-            case this.DMA2SAD_HI:
-            case this.DMA2DAD_HI:
-            case this.DMA3SAD_HI:
-            case this.DMA3DAD_HI:
-                this.store32(offset - 2, this.registers[(offset >> 1) - 1] | (value << 16));
-                return {
-                    goReturn: true,
-                    handle: true
-                };
-
-            case this.DMA0CNT_LO:
-                irq.dmaSetWordCount(0, value);
-                break;
-            case this.DMA0CNT_HI:
-                // The DMA registers need to set the values before writing the control, as writing the
-                // control can synchronously trigger a DMA transfer
-                this.registers[offset >> 1] = value & 0xFFE0;
-                irq.dmaWriteControl(0, value);
-                return {
-                    goReturn: true,
-                    handle: true
-                };
-            case this.DMA1CNT_LO:
-                irq.dmaSetWordCount(1, value);
-                break;
-            case this.DMA1CNT_HI:
-                this.registers[offset >> 1] = value & 0xFFE0;
-                irq.dmaWriteControl(1, value);
-                return {
-                    goReturn: true,
-                    handle: true
-                };
-            case this.DMA2CNT_LO:
-                irq.dmaSetWordCount(2, value);
-                break;
-            case this.DMA2CNT_HI:
-                this.registers[offset >> 1] = value & 0xFFE0;
-                irq.dmaWriteControl(2, value);
-                return {
-                    goReturn: true,
-                    handle: true
-                };
-            case this.DMA3CNT_LO:
-                irq.dmaSetWordCount(3, value);
-                break;
-            case this.DMA3CNT_HI:
-                this.registers[offset >> 1] = value & 0xFFE0;
-                irq.dmaWriteControl(3, value);
-                return {
-                    goReturn: true,
-                    handle: true
-                };
-            default:
-                return {
-                    goReturn: false,
-                    handle: false
-                };
-        }
-
-        return {
-            goReturn: false,
-            handle: true
-        };
-    }
-
-    private handleTimer(offset: number, value: number): store16DelegateResult {
-        const irq = this.getIRQ();
-        switch (offset) {
-            // Timers
-            case this.TM0CNT_LO:
-                irq.timerSetReload(0, value);
-                return {
-                    goReturn: true,
-                    handle: true
-                };
-            case this.TM1CNT_LO:
-                irq.timerSetReload(1, value);
-                return {
-                    goReturn: true,
-                    handle: true
-                };
-            case this.TM2CNT_LO:
-                irq.timerSetReload(2, value);
-                return {
-                    goReturn: true,
-                    handle: true
-                };
-            case this.TM3CNT_LO:
-                irq.timerSetReload(3, value);
-                return {
-                    goReturn: true,
-                    handle: true
-                };
-
-            case this.TM0CNT_HI:
-                value &= 0x00C7
-                irq.timerWriteControl(0, value);
-                break;
-            case this.TM1CNT_HI:
-                value &= 0x00C7
-                irq.timerWriteControl(1, value);
-                break;
-            case this.TM2CNT_HI:
-                value &= 0x00C7
-                irq.timerWriteControl(2, value);
-                break;
-            case this.TM3CNT_HI:
-                value &= 0x00C7
-                irq.timerWriteControl(3, value);
-                break;
-            default:
-                return {
-                    goReturn: false,
-                    handle: false
-                };
-        }
-        return {
-            goReturn: false,
-            handle: true
-        };
-    }
-
-    private handleSIO(offset: number, value: number): store16DelegateResult {
-        if (!this.registers) {
-            throw new Error("register no init");
-        }
-
-        const sio = this.getSIO();
-        switch (offset) {
-            // SIO
-            case this.SIOMULTI0:
-            case this.SIOMULTI1:
-            case this.SIOMULTI2:
-            case this.SIOMULTI3:
-            case this.SIODATA8:
-                this.STUB_REG('SIO', offset);
-                break;
-            case this.RCNT:
-                sio.setMode(((value >> 12) & 0xC) | ((this.registers[this.SIOCNT >> 1] >> 12) & 0x3));
-                sio.writeRCNT(value);
-                break;
-            case this.SIOCNT:
-                sio.setMode(((value >> 12) & 0x3) | ((this.registers[this.RCNT >> 1] >> 12) & 0xC));
-                sio.writeSIOCNT(value);
-                return {
-                    goReturn: true,
-                    handle: true
-                };
-            case this.JOYCNT:
-            case this.JOYSTAT:
-                this.STUB_REG('JOY', offset);
-                break;
-            default:
-                return {
-                    goReturn: false,
-                    handle: false
-                };
-        }
-        return {
-            goReturn: false,
-            handle: true
-        };
-    }
-
-    private handleMisc(offset: number, value: number): store16DelegateResult {
-        if (!this.registers) {
-            throw new Error("register no init");
-        }
-        const irq = this.getIRQ();
-        switch (offset) {
-            // Misc
-            case this.IE:
-                value &= 0x3FFF;
-                irq.setInterruptsEnabled(value > 0);
-                break;
-            case this.IF:
-                irq.dismissIRQs(value);
-                return {
-                    goReturn: true,
-                    handle: true
-                };
-            case this.WAITCNT:
-                value &= 0xDFFF;
-                this.getCPU().mmu.adjustTimings(value);
-                break;
-            case this.IME:
-                value &= 0x0001;
-                irq.masterEnable(value > 0);
-                break;
-            default:
-                return {
-                    goReturn: false,
-                    handle: false
-                };
-        }
-
-        return {
-            goReturn: false,
-            handle: true
-        };
+        return this.core.getAudio() as IAudio;
     }
 
     store16(offset: number, value: number): void {
@@ -1366,7 +890,7 @@ export default class GameBoyAdvanceIO implements IClose, IIO, IClear, IMemoryVie
                 return;
             case this.WAITCNT:
                 value &= 0xDFFF;
-                this.getCPU().mmu.adjustTimings(value);
+                this.getGBAMMU().adjustTimings(value);
                 break;
             case this.IME:
                 value &= 0x0001;
@@ -1470,7 +994,7 @@ export default class GameBoyAdvanceIO implements IClose, IIO, IClear, IMemoryVie
      * @param offset 
      */
     STUB_REG(type: string, offset: number): void {
-        (this.core as ILog).STUB('Unimplemented ' + type + ' register write: ' + offset.toString(16));
+        this.getLog().STUB('Unimplemented ' + type + ' register write: ' + offset.toString(16));
     }
 
 }

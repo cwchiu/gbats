@@ -1,4 +1,4 @@
-import { IVideo, IClose, IVideoCanvas, ICloseData, IClear, IRenderPath, ICPU, DrawCallbackHandler, BlankCallbackHandler, IIRQ, IPixelData } from "../interfaces.ts";
+import { IContext, IGBAMMU, IVideo, IClose, IVideoCanvas, ICloseData, IClear, IRenderPath, ICPU, DrawCallbackHandler, BlankCallbackHandler, IIRQ, IPixelData } from "../interfaces.ts";
 import { factoryVideoRenderer } from "./utils.ts";
 
 export default class GameBoyAdvanceVideo implements IVideo, IClose, IClear {
@@ -34,19 +34,22 @@ export default class GameBoyAdvanceVideo implements IVideo, IClose, IClear {
     nextHblankIRQ: number = 0
     nextVblankIRQ: number = 0
     nextVcounterIRQ: number = 0
-    // @ts-ignore
-    cpu: ICPU
     drawCallback: DrawCallbackHandler
     vblankCallback: BlankCallbackHandler
-
-    constructor() {
+    core: IContext
+    constructor(ctx: IContext) {
+        this.core = ctx
         this.renderPath = factoryVideoRenderer();
         this.drawCallback = function () { };
         this.vblankCallback = function () { };
     }
 
+    private getMMU():IGBAMMU{
+        return this.core.getMMU() as IGBAMMU;
+    }
+
     clear(): void {
-        this.getRenderPath().clear(this.cpu.mmu);
+        this.getRenderPath().clear(this.getMMU());
 
         // DISPSTAT
         this.DISPSTAT_MASK = 0xFF38;
@@ -128,7 +131,7 @@ export default class GameBoyAdvanceVideo implements IVideo, IClose, IClear {
     }
 
     private getIRQ(): IIRQ {
-        return this.cpu.irq as IIRQ;
+        return this.core.getIRQ() as IIRQ;
     }
 
     private getRenderPath(): IRenderPath {
@@ -153,7 +156,7 @@ export default class GameBoyAdvanceVideo implements IVideo, IClose, IClear {
                         this.inVblank = true;
                         renderPath.finishDraw(this);
                         this.nextVblankIRQ = this.nextEvent + this.TOTAL_LENGTH;
-                        this.cpu.mmu.runVblankDmas();
+                        this.getMMU().runVblankDmas();
                         if (this.vblankIRQ) {
                             irq.raiseIRQ(irq.IRQ_VBLANK);
                         }
@@ -186,7 +189,7 @@ export default class GameBoyAdvanceVideo implements IVideo, IClose, IClear {
                 this.nextHblankIRQ = this.nextHblank;
 
                 if (this.vcount < this.VERTICAL_PIXELS) {
-                    this.cpu.mmu.runHblankDmas();
+                    this.getMMU().runHblankDmas();
                 }
                 if (this.hblankIRQ) {
                     irq.raiseIRQ(irq.IRQ_HBLANK);

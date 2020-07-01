@@ -196,6 +196,7 @@ export type RegisterFlag = 0 | 1;
 
 export interface IContext {
     getIO(): IIO | IClose | IClear
+    getSIO(): ISIO | IClear
     getVideo(): IVideo | IClose | IClear
     getAudio(): IAudio | IClose | IClear
     getIRQ(): IIRQ | IClose | IClear
@@ -203,6 +204,7 @@ export interface IContext {
     getMMU(): IGBAMMU | IClose | IClear
     getLog():ILog
     getGBA():IGBA
+    getKeypad():IKeypad
 }
 
 export interface ICanvasHtmlElement {
@@ -216,8 +218,8 @@ export interface IGamepad {
 }
 export interface ICPU {
     gprs: IGPRSMap
-    mmu: IGBAMMU
-    irq: IIRQ | IClear
+    // mmu: IGBAMMU
+    // irq: IIRQ | IClear
     instruction: IOp | null
     instructionWidth: number
     readonly PC: number
@@ -253,6 +255,7 @@ export interface ICPU {
     execMode: OpExecMode
     switchExecMode(mode: OpExecMode): void
     mode: ARMMode
+    core: IContext
     switchMode(mode: ARMMode): void
 
     raiseIRQ(): void
@@ -310,14 +313,16 @@ export interface IIRQ {
     dmaSetDestAddress(dma: number, address: number): void
 
     dma: IDMA[]
-    audio: IAudio | null
-    video: IVideo | null
-    io: IIO | null
+    // audio: IAudio | null
+    // video: IVideo | null
+    // io: IIO | null
     FREQUENCY: number
 
     IRQ_VBLANK: number
     IRQ_HBLANK: number
     IRQ_VCOUNTER: number
+
+    getClear():IClear
 }
 
 export type DMANumber = 0 | 1 | 2 | 3

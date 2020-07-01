@@ -572,17 +572,11 @@ export default class GameBoyAdvanceMMU implements IGBAMMU, IClose, IClear {
     }
 
     private getAudio(): IAudio {
-        const audio = this.getIRQ().audio;
-        if (!audio) {
-            throw new Error("audio no init");
-        }
-
-        return audio;
+        return this.core.getAudio() as IAudio;
     }
 
     private getIRQ(): IIRQ {
-        const irq = this.getCPU().irq;
-        return irq as IIRQ;
+        return this.core.getIRQ() as IIRQ;
     }
 
     /**

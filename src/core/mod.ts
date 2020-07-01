@@ -1,8 +1,8 @@
 import ARMCore from "./ARMCore.ts";
-import {ICPU} from "../interfaces.ts";
+import {ICPU, IContext} from "../interfaces.ts";
 
-function factoryCPU(): ICPU{
-    return new ARMCore();
+function factoryCPU(ctx: IContext): ICPU{
+    return new ARMCore(ctx);
 }
 
 export {

@@ -1,8 +1,8 @@
 import GameBoyAdvanceInterruptHandler from "./GameBoyAdvanceInterruptHandler.ts";
-import {IIRQ, IClose} from "../interfaces.ts";
+import { IIRQ, IClose, IContext } from "../interfaces.ts";
 
-function factoryIRQ():IIRQ|IClose {
-    return new GameBoyAdvanceInterruptHandler();
+function factoryIRQ(ctx: IContext): IIRQ | IClose {
+    return new GameBoyAdvanceInterruptHandler(ctx);
 }
 
 export {

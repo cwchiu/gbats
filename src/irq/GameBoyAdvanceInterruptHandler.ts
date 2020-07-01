@@ -1,4 +1,4 @@
-import { DMANumber, IIRQ, IClose, ICloseData, ICPU, IAudio, IVideo, ARMMode, IIO, IDMA, IGBA, IGBAMMU, MemoryRegion, IBIOS, IMemoryView, OpExecMode, ILog, MemoryRegionSize, IRenderPath } from "../interfaces.ts";
+import { DMANumber, IIRQ, IContext, IClose, ICloseData, ICPU, IAudio, IVideo, ARMMode, IIO, IDMA, IGBA, IGBAMMU, MemoryRegion, IBIOS, IMemoryView, OpExecMode, ILog, MemoryRegionSize, IRenderPath, IClear } from "../interfaces.ts";
 import MemoryBlock from "../mmu/MemoryBlock.ts";
 
 interface ITimer {
@@ -55,11 +55,19 @@ export default class GameBoyAdvanceInterruptHandler implements IIRQ, IClose {
     springIRQ: boolean = false
     dma: Array<IDMA> = []
     timers: Array<ITimer> = []
-    cpu: ICPU | null = null
-    video: IVideo | null = null
-    audio: IAudio | null = null
-    io: IIO | null = null
-    core: IGBA | ILog | null = null
+    // cpu: ICPU | null = null
+    // video: IVideo | null = null
+    // audio: IAudio | null = null
+    // io: IIO | null = null
+    // core: IGBA | ILog | null = null
+    core: IContext
+    constructor(ctx: IContext){
+        this.core = ctx;
+    }
+
+    getClear():IClear {
+        return this as IClear;
+    }
 
     /**
      * 
@@ -153,6 +161,9 @@ export default class GameBoyAdvanceInterruptHandler implements IIRQ, IClose {
         this.springIRQ = frost.springIRQ;
     }
 
+    private getVideo():IVideo {
+        return this.core.getVideo() as IVideo;
+    }
     /**
      * 
      */
@@ -168,22 +179,22 @@ export default class GameBoyAdvanceInterruptHandler implements IIRQ, IClose {
             this.springIRQ = false;
         }
 
-        if (!this.video) {
-            throw new Error("video no init");
-        }
-        this.video.updateTimers(cpu);
+        const video = this.getVideo();
+        // if (!this.video) {
+            // throw new Error("video no init");
+        // }
+        video.updateTimers(cpu);
 
 
-        if (!this.audio) {
-            throw new Error("audio no init");
-        }
-        this.audio.updateTimers();
+        // if (!this.audio) {
+            // throw new Error("audio no init");
+        // }
+        const audio = this.getAudio();
+        audio.updateTimers();
 
-        if (!this.io) {
-            throw new Error("io no init");
-        }
+        const io = this.core.getIO() as IIO;
 
-        if(!this.io.registers){
+        if(!io.registers){
             throw new Error("register no init");
         }
         
@@ -194,26 +205,26 @@ export default class GameBoyAdvanceInterruptHandler implements IIRQ, IClose {
                 if (cpu.cycles >= timer.nextEvent) {
                     timer.lastEvent = timer.nextEvent;
                     timer.nextEvent += timer.overflowInterval;
-                    this.io.registers[this.io.TM0CNT_LO >> 1] = timer.reload;
+                    io.registers[io.TM0CNT_LO >> 1] = timer.reload;
                     timer.oldReload = timer.reload;
 
                     if (timer.doIrq) {
                         this.raiseIRQ(this.IRQ_TIMER0);
                     }
 
-                    if (this.audio.enabled) {
-                        if (this.audio.enableChannelA && !this.audio.soundTimerA && this.audio.dmaA >= 0) {
-                            this.audio.sampleFifoA();
+                    if (audio.enabled) {
+                        if (audio.enableChannelA && !audio.soundTimerA && audio.dmaA >= 0) {
+                            audio.sampleFifoA();
                         }
 
-                        if (this.audio.enableChannelB && !this.audio.soundTimerB && this.audio.dmaB >= 0) {
-                            this.audio.sampleFifoB();
+                        if (audio.enableChannelB && !audio.soundTimerB && audio.dmaB >= 0) {
+                            audio.sampleFifoB();
                         }
                     }
 
                     timer = this.timers[1];
                     if (timer.countUp) {
-                        if (++this.io.registers[this.io.TM1CNT_LO >> 1] == 0x10000) {
+                        if (++io.registers[io.TM1CNT_LO >> 1] == 0x10000) {
                             timer.nextEvent = cpu.cycles;
                         }
                     }
@@ -225,8 +236,8 @@ export default class GameBoyAdvanceInterruptHandler implements IIRQ, IClose {
                 if (cpu.cycles >= timer.nextEvent) {
                     timer.lastEvent = timer.nextEvent;
                     timer.nextEvent += timer.overflowInterval;
-                    if (!timer.countUp || this.io.registers[this.io.TM1CNT_LO >> 1] == 0x10000) {
-                        this.io.registers[this.io.TM1CNT_LO >> 1] = timer.reload;
+                    if (!timer.countUp || io.registers[io.TM1CNT_LO >> 1] == 0x10000) {
+                        io.registers[io.TM1CNT_LO >> 1] = timer.reload;
                     }
                     timer.oldReload = timer.reload;
 
@@ -238,19 +249,19 @@ export default class GameBoyAdvanceInterruptHandler implements IIRQ, IClose {
                         timer.nextEvent = 0;
                     }
 
-                    if (this.audio.enabled) {
-                        if (this.audio.enableChannelA && this.audio.soundTimerA && this.audio.dmaA >= 0) {
-                            this.audio.sampleFifoA();
+                    if (audio.enabled) {
+                        if (audio.enableChannelA && audio.soundTimerA && audio.dmaA >= 0) {
+                            audio.sampleFifoA();
                         }
 
-                        if (this.audio.enableChannelB && this.audio.soundTimerB && this.audio.dmaB >= 0) {
-                            this.audio.sampleFifoB();
+                        if (audio.enableChannelB && audio.soundTimerB && audio.dmaB >= 0) {
+                            audio.sampleFifoB();
                         }
                     }
 
                     timer = this.timers[2];
                     if (timer.countUp) {
-                        if (++this.io.registers[this.io.TM2CNT_LO >> 1] == 0x10000) {
+                        if (++io.registers[io.TM2CNT_LO >> 1] == 0x10000) {
                             timer.nextEvent = cpu.cycles;
                         }
                     }
@@ -262,8 +273,8 @@ export default class GameBoyAdvanceInterruptHandler implements IIRQ, IClose {
                 if (cpu.cycles >= timer.nextEvent) {
                     timer.lastEvent = timer.nextEvent;
                     timer.nextEvent += timer.overflowInterval;
-                    if (!timer.countUp || this.io.registers[this.io.TM2CNT_LO >> 1] == 0x10000) {
-                        this.io.registers[this.io.TM2CNT_LO >> 1] = timer.reload;
+                    if (!timer.countUp || io.registers[io.TM2CNT_LO >> 1] == 0x10000) {
+                        io.registers[io.TM2CNT_LO >> 1] = timer.reload;
                     }
                     timer.oldReload = timer.reload;
 
@@ -277,7 +288,7 @@ export default class GameBoyAdvanceInterruptHandler implements IIRQ, IClose {
 
                     timer = this.timers[3];
                     if (timer.countUp) {
-                        if (++this.io.registers[this.io.TM3CNT_LO >> 1] == 0x10000) {
+                        if (++io.registers[io.TM3CNT_LO >> 1] == 0x10000) {
                             timer.nextEvent = cpu.cycles;
                         }
                     }
@@ -289,8 +300,8 @@ export default class GameBoyAdvanceInterruptHandler implements IIRQ, IClose {
                 if (cpu.cycles >= timer.nextEvent) {
                     timer.lastEvent = timer.nextEvent;
                     timer.nextEvent += timer.overflowInterval;
-                    if (!timer.countUp || this.io.registers[this.io.TM3CNT_LO >> 1] == 0x10000) {
-                        this.io.registers[this.io.TM3CNT_LO >> 1] = timer.reload;
+                    if (!timer.countUp || io.registers[io.TM3CNT_LO >> 1] == 0x10000) {
+                        io.registers[io.TM3CNT_LO >> 1] = timer.reload;
                     }
                     timer.oldReload = timer.reload;
 
@@ -336,16 +347,14 @@ export default class GameBoyAdvanceInterruptHandler implements IIRQ, IClose {
      * 
      */
     resetSP(): void {
-        if (!this.cpu) {
-            throw new Error("cpu no init");
-        }
+        const cpu = this.getCPU();
 
-        this.cpu.switchMode(ARMMode.SVC);
-        this.cpu.gprs[this.cpu.SP] = 0x3007FE0;
-        this.cpu.switchMode(ARMMode.IRQ);
-        this.cpu.gprs[this.cpu.SP] = 0x3007FA0;
-        this.cpu.switchMode(ARMMode.System);
-        this.cpu.gprs[this.cpu.SP] = 0x3007F00;
+        cpu.switchMode(ARMMode.SVC);
+        cpu.gprs[cpu.SP] = 0x3007FE0;
+        cpu.switchMode(ARMMode.IRQ);
+        cpu.gprs[cpu.SP] = 0x3007FA0;
+        cpu.switchMode(ARMMode.System);
+        cpu.gprs[cpu.SP] = 0x3007F00;
     }
 
     /**
@@ -357,7 +366,7 @@ export default class GameBoyAdvanceInterruptHandler implements IIRQ, IClose {
     }
 
     private getGBA(): IGBA {
-        return this.core as IGBA;
+        return this.core.getGBA();
     }
 
     private getGBAMMU(): IGBAMMU {
@@ -369,12 +378,9 @@ export default class GameBoyAdvanceInterruptHandler implements IIRQ, IClose {
     }
 
     private getCPU(): ICPU {
-        if (!this.cpu) {
-            throw new Error("cpu no init");
-        }
-
-        return this.cpu;
+        return this.core.getCPU() as ICPU;
     }
+
     /**
      * 
      * @param opcode 
@@ -484,36 +490,37 @@ export default class GameBoyAdvanceInterruptHandler implements IIRQ, IClose {
                 var count = mode & 0x000FFFFF;
                 var fill = mode & 0x01000000;
                 var wordsize = (mode & 0x04000000) ? 4 : 2;
+                
                 if (fill) {
                     if (wordsize == 4) {
                         source &= 0xFFFFFFFC;
                         dest &= 0xFFFFFFFC;
-                        var word = cpu.mmu.load32(source);
+                        var word = mmu.load32(source);
                         for (var i = 0; i < count; ++i) {
-                            cpu.mmu.store32(dest + (i << 2), word);
+                            mmu.store32(dest + (i << 2), word);
                         }
                     } else {
                         source &= 0xFFFFFFFE;
                         dest &= 0xFFFFFFFE;
-                        var word = cpu.mmu.load16(source);
-                        for (var i = 0; i < count; ++i) {
-                            cpu.mmu.store16(dest + (i << 1), word);
+                        var word = mmu.load16(source);
+                        for (let i = 0; i < count; ++i) {
+                            mmu.store16(dest + (i << 1), word);
                         }
                     }
                 } else {
                     if (wordsize == 4) {
                         source &= 0xFFFFFFFC;
                         dest &= 0xFFFFFFFC;
-                        for (var i = 0; i < count; ++i) {
-                            var word = cpu.mmu.load32(source + (i << 2));
-                            cpu.mmu.store32(dest + (i << 2), word);
+                        for (let i = 0; i < count; ++i) {
+                            var word = mmu.load32(source + (i << 2));
+                            mmu.store32(dest + (i << 2), word);
                         }
                     } else {
                         source &= 0xFFFFFFFE;
                         dest &= 0xFFFFFFFE;
-                        for (var i = 0; i < count; ++i) {
-                            var word = cpu.mmu.load16(source + (i << 1));
-                            cpu.mmu.store16(dest + (i << 1), word);
+                        for (let i = 0; i < count; ++i) {
+                            const word = mmu.load16(source + (i << 1));
+                            mmu.store16(dest + (i << 1), word);
                         }
                     }
                 }
@@ -527,14 +534,14 @@ export default class GameBoyAdvanceInterruptHandler implements IIRQ, IClose {
                 count = ((count + 7) >> 3) << 3;
                 var fill = mode & 0x01000000;
                 if (fill) {
-                    var word = cpu.mmu.load32(source);
+                    var word = mmu.load32(source);
                     for (var i = 0; i < count; ++i) {
-                        cpu.mmu.store32(dest + (i << 2), word);
+                        mmu.store32(dest + (i << 2), word);
                     }
                 } else {
                     for (var i = 0; i < count; ++i) {
-                        var word = cpu.mmu.load32(source + (i << 2));
-                        cpu.mmu.store32(dest + (i << 2), word);
+                        var word = mmu.load32(source + (i << 2));
+                        mmu.store32(dest + (i << 2), word);
                     }
                 }
                 return;
@@ -553,13 +560,13 @@ export default class GameBoyAdvanceInterruptHandler implements IIRQ, IClose {
                     // [ sx   0  0 ]   [ cos(theta)  -sin(theta)  0 ]   [ 1  0  cx - ox ]   [ A B rx ]
                     // [  0  sy  0 ] * [ sin(theta)   cos(theta)  0 ] * [ 0  1  cy - oy ] = [ C D ry ]
                     // [  0   0  1 ]   [     0            0       1 ]   [ 0  0     1    ]   [ 0 0  1 ]
-                    ox = cpu.mmu.load32(offset) / 256;
-                    oy = cpu.mmu.load32(offset + 4) / 256;
-                    cx = cpu.mmu.load16(offset + 8);
-                    cy = cpu.mmu.load16(offset + 10);
-                    sx = cpu.mmu.load16(offset + 12) / 256;
-                    sy = cpu.mmu.load16(offset + 14) / 256;
-                    theta = (cpu.mmu.loadU16(offset + 16) >> 8) / 128 * Math.PI;
+                    ox = mmu.load32(offset) / 256;
+                    oy = mmu.load32(offset + 4) / 256;
+                    cx = mmu.load16(offset + 8);
+                    cy = mmu.load16(offset + 10);
+                    sx = mmu.load16(offset + 12) / 256;
+                    sy = mmu.load16(offset + 14) / 256;
+                    theta = (mmu.loadU16(offset + 16) >> 8) / 128 * Math.PI;
                     offset += 20;
                     // Rotation
                     a = d = Math.cos(theta);
@@ -572,12 +579,12 @@ export default class GameBoyAdvanceInterruptHandler implements IIRQ, IClose {
                     // Translate
                     rx = ox - (a * cx + b * cy);
                     ry = oy - (c * cx + d * cy);
-                    cpu.mmu.store16(destination, (a * 256) | 0);
-                    cpu.mmu.store16(destination + 2, (b * 256) | 0);
-                    cpu.mmu.store16(destination + 4, (c * 256) | 0);
-                    cpu.mmu.store16(destination + 6, (d * 256) | 0);
-                    cpu.mmu.store32(destination + 8, (rx * 256) | 0);
-                    cpu.mmu.store32(destination + 12, (ry * 256) | 0);
+                    mmu.store16(destination, (a * 256) | 0);
+                    mmu.store16(destination + 2, (b * 256) | 0);
+                    mmu.store16(destination + 4, (c * 256) | 0);
+                    mmu.store16(destination + 6, (d * 256) | 0);
+                    mmu.store32(destination + 8, (rx * 256) | 0);
+                    mmu.store32(destination + 12, (ry * 256) | 0);
                     destination += 16;
                 }
                 break;
@@ -593,9 +600,9 @@ export default class GameBoyAdvanceInterruptHandler implements IIRQ, IClose {
                 while (i--) {
                     // [ sx   0 ]   [ cos(theta)  -sin(theta) ]   [ A B ]
                     // [  0  sy ] * [ sin(theta)   cos(theta) ] = [ C D ]
-                    sx = cpu.mmu.load16(offset) / 256;
-                    sy = cpu.mmu.load16(offset + 2) / 256;
-                    theta = (cpu.mmu.loadU16(offset + 4) >> 8) / 128 * Math.PI;
+                    sx = mmu.load16(offset) / 256;
+                    sy = mmu.load16(offset + 2) / 256;
+                    theta = (mmu.loadU16(offset + 4) >> 8) / 128 * Math.PI;
                     offset += 6;
                     // Rotation
                     a = d = Math.cos(theta);
@@ -605,10 +612,10 @@ export default class GameBoyAdvanceInterruptHandler implements IIRQ, IClose {
                     b *= -sx;
                     c *= sy;
                     d *= sy;
-                    cpu.mmu.store16(destination, (a * 256) | 0);
-                    cpu.mmu.store16(destination + diff, (b * 256) | 0);
-                    cpu.mmu.store16(destination + diff * 2, (c * 256) | 0);
-                    cpu.mmu.store16(destination + diff * 3, (d * 256) | 0);
+                    mmu.store16(destination, (a * 256) | 0);
+                    mmu.store16(destination + diff, (b * 256) | 0);
+                    mmu.store16(destination + diff * 2, (c * 256) | 0);
+                    mmu.store16(destination + diff * 3, (d * 256) | 0);
                     destination += diff * 4;
                 }
                 break;
@@ -634,7 +641,7 @@ export default class GameBoyAdvanceInterruptHandler implements IIRQ, IClose {
                 break;
             case 0x1F:
                 // MidiKey2Freq
-                var key = cpu.mmu.load32(cpu.gprs[0] + 4);
+                var key = mmu.load32(cpu.gprs[0] + 4);
                 cpu.gprs[0] = key / Math.pow(2, (180 - cpu.gprs[1] - cpu.gprs[2] / 256) / 12) >>> 0;
                 break;
             default:
@@ -642,18 +649,8 @@ export default class GameBoyAdvanceInterruptHandler implements IIRQ, IClose {
         }
     }
 
-    private getVideo(): IVideo {
-        if (!this.video) {
-            throw new Error("video no init");
-        }
-        return this.video;
-    }
-
     private getIO(): IIO {
-        if (!this.io) {
-            throw new Error("io no init");
-        }
-        return this.io;
+        return this.core.getIO() as IIO;
     }
 
     /**
@@ -669,7 +666,7 @@ export default class GameBoyAdvanceInterruptHandler implements IIRQ, IClose {
     }
 
     private getLog(): ILog {
-        return this.core as ILog;
+        return this.core.getLog();
     }
 
     /**
@@ -694,10 +691,7 @@ export default class GameBoyAdvanceInterruptHandler implements IIRQ, IClose {
     }
 
     private getAudio(): IAudio {
-        if (!this.audio) {
-            throw new Error("audio no init");
-        }
-        return this.audio;
+        return this.core.getAudio() as IAudio;
     }
 
     /**

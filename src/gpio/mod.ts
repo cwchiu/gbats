@@ -1,14 +1,14 @@
 import GameBoyAdvanceIO from "./GameBoyAdvanceIO.ts";
 import GameBoyAdvanceSIO from "./GameBoyAdvanceSIO.ts";
 import GameBoyAdvanceGPIO from "./GameBoyAdvanceGPIO.ts";
-import { IIO, ISIO, IClose, IClear } from "../interfaces.ts";
+import { IIO, ISIO, IClose, IClear, IContext } from "../interfaces.ts";
 
-function factoryIO(): IIO | IClose | IClear {
-    return new GameBoyAdvanceIO();
+function factoryIO(ctx: IContext): IIO | IClose | IClear {
+    return new GameBoyAdvanceIO(ctx);
 }
 
-function factorySIO(): ISIO {
-    return new GameBoyAdvanceSIO();
+function factorySIO(ctx: IContext): ISIO {
+    return new GameBoyAdvanceSIO(ctx);
 }
 
 export {

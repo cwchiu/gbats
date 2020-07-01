@@ -1,8 +1,8 @@
 import GameBoyAdvanceVideo from "./GameBoyAdvanceVideo.ts";
-import { IVideo, IClose, IClear } from "../interfaces.ts";
+import { IVideo, IClose, IClear, IContext } from "../interfaces.ts";
 
-function factoryVideo(): IVideo | IClose | IClear {
-    return new GameBoyAdvanceVideo();
+function factoryVideo(ctx: IContext): IVideo | IClose | IClear {
+    return new GameBoyAdvanceVideo(ctx);
 }
 
 export {

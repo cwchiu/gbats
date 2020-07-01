@@ -141,14 +141,14 @@ export default class GameBoyAdvanceAudio implements IAudio, IClose, IClear {
     squareChannels: IChannel[] = []
     channel4: IChannel4 | null = null
 
-    core: ILog | IGBA | IContext | null = null
-    cpu: ICPU | null = null
+    core: IContext
     fifoA: number[] = []
     fifoB: number[] = []
     channel3Write: boolean = false
 
-    constructor() {
+    constructor(ctx: IContext) {
         this.setupNativeAudio();
+        this.core = ctx
 
         if (this.context) {
             this.bufferSize = 0;
@@ -310,7 +310,7 @@ export default class GameBoyAdvanceAudio implements IAudio, IClose, IClear {
     }
 
     private getGBA(): IGBA {
-        return this.core as IGBA;
+        return this.core.getGBA();
     }
 
     freeze(): ICloseData {
@@ -345,10 +345,7 @@ export default class GameBoyAdvanceAudio implements IAudio, IClose, IClear {
     }
 
     private getCPU(): ICPU {
-        if (!this.cpu) {
-            throw new Error("cpu no init");
-        }
-        return this.cpu;
+        return this.core.getCPU() as ICPU;
     }
 
     updateTimers() {
@@ -908,7 +905,7 @@ export default class GameBoyAdvanceAudio implements IAudio, IClose, IClear {
     }
 
     private getLog(): ILog {
-        return this.core as ILog;
+        return this.core.getLog();
     }
 
     private getGBAContext(): IContext {
@@ -924,7 +921,7 @@ export default class GameBoyAdvanceAudio implements IAudio, IClose, IClear {
     }
 
     private getIIO(): IIO {
-        return this.getIRQ().io as IIO;
+        return this.core.getIO() as IIO;
     }
 
     /**

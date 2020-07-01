@@ -1,5 +1,5 @@
 import {
-    IGBAMMU, IIRQ, ICPU, ICacheData, ICompilerArm, ICompilerThumb, IOp, IClose, ICloseData,
+    IGBAMMU, IContext, IIRQ, ICPU, ICacheData, ICompilerArm, ICompilerThumb, IOp, IClose, ICloseData,
     OpExecMode, ARMMode, ARMBank, IConditionOperator, IBIOS, ICPUOperator, IInstruction,
     NumberHashtable, ICPUAddress, IClear
 } from "../interfaces.ts";
@@ -28,10 +28,7 @@ export default class ARMCore implements ICPU, IClose {
     LR: number = 14
     PC: number = 15
 
-    // @ts-ignore
-    mmu: IGBAMMU;
-    // @ts-ignore
-    irq: IIRQ | IClear;
+
     page: ICacheData | null = null
     conds: Array<IConditionOperator | null> = []
     pageMask: number = 0
@@ -79,8 +76,9 @@ export default class ARMCore implements ICPU, IClose {
     MODE_ABORT = 0x17;
     MODE_UNDEFINED = 0x1B;
     MODE_SYSTEM = 0x1F;
-
-    constructor() {
+    core: IContext
+    constructor(ctx: IContext) {
+        this.core = ctx;
         this.armCompiler = new ARMCoreArm(this);
         this.thumbCompiler = new ARMCoreThumb(this);
         this.generateConds();
@@ -131,8 +129,7 @@ export default class ARMCore implements ICPU, IClose {
         this.pageRegion = -1;
 
         this.instruction = null;
-
-        (this.irq as IClear).clear();
+        this.getIRQ().getClear().clear();
     }
 
     /**
@@ -140,7 +137,7 @@ export default class ARMCore implements ICPU, IClose {
      */
     step(): void {
         const gprs = this.gprs;
-        const mmu = this.mmu;
+        const mmu = this.getMMU();
 
         let instruction = this.instruction;
         if (!instruction) {
@@ -184,7 +181,7 @@ export default class ARMCore implements ICPU, IClose {
                 this.instruction = null;
             }
         }
-        (this.irq as IIRQ).updateTimers();
+        this.getIRQ().updateTimers();
     }
 
     freeze(): ICloseData {
@@ -335,20 +332,21 @@ export default class ARMCore implements ICPU, IClose {
     }
 
     fetchPage(address: number): void {
-        const region = address >> this.mmu.BASE_OFFSET;
-        const pageId = this.mmu.addressToPage(region, address & this.mmu.OFFSET_MASK);
+        const mmu = this.getMMU();
+        const region = address >> mmu.BASE_OFFSET;
+        const pageId = mmu.addressToPage(region, address & mmu.OFFSET_MASK);
         if (region == this.pageRegion) {
             if (pageId == this.pageId && !this.page?.invalid) {
                 return;
             }
             this.pageId = pageId;
         } else {
-            this.pageMask = (this.mmu.memory[region] as IBIOS).PAGE_MASK;
+            this.pageMask = (mmu.memory[region] as IBIOS).PAGE_MASK;
             this.pageRegion = region;
             this.pageId = pageId;
         }
 
-        this.page = this.mmu.accessPage(region, pageId);
+        this.page = mmu.accessPage(region, pageId);
     }
 
     /**
@@ -370,7 +368,7 @@ export default class ARMCore implements ICPU, IClose {
             return next;
         }
 
-        const instruction = this.mmu.load32(address) >>> 0;
+        const instruction = this.getMMU().load32(address) >>> 0;
         next = this.compileArm(instruction);
         next.next = null;
         next.page = this.page;
@@ -395,7 +393,7 @@ export default class ARMCore implements ICPU, IClose {
         if (next) {
             return next;
         }
-        const instruction = this.mmu.load16(address);
+        const instruction = this.getMMU().load16(address);
         next = this.compileThumb(instruction);
         next.next = null;
         next.page = this.page;
@@ -405,6 +403,9 @@ export default class ARMCore implements ICPU, IClose {
         return next;
     }
 
+    private getMMU():IGBAMMU{
+        return this.core.getMMU() as IGBAMMU;
+    }
     /**
      * 
      * @param mode 
@@ -520,7 +521,11 @@ export default class ARMCore implements ICPU, IClose {
         this.cpsrC = spsr & 0x20000000;
         this.cpsrV = spsr & 0x10000000;
 
-        (this.irq as IIRQ).testIRQ();
+        this.getIRQ().testIRQ();
+    }
+
+    private getIRQ(): IIRQ {
+        return this.core.getIRQ() as IIRQ;
     }
 
     /**

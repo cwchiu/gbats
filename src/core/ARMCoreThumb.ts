@@ -1,4 +1,4 @@
-import {ICompilerThumb, ICPU, IIRQ, IConditionOperator, IInstruction} from "../interfaces.ts";
+import {ICompilerThumb, ICPU, IIRQ, IConditionOperator, IInstruction, IGBAMMU} from "../interfaces.ts";
 
 /**
  * ARM Thumb 指令集
@@ -9,6 +9,10 @@ export default class ARMCoreThumb implements ICompilerThumb {
         this.cpu = cpu;    
     }
 
+    private getMMU():IGBAMMU {
+        return this.cpu.core.getMMU() as IGBAMMU;
+    }
+
     /**
      * ADC
      * @param rd 
@@ -17,8 +21,9 @@ export default class ARMCoreThumb implements ICompilerThumb {
     constructADC(rd: number, rm: number): IInstruction {
         const cpu = this.cpu;
         const gprs = cpu.gprs;
+        const mmu = this.getMMU();
         return function() {
-            cpu.mmu.waitPrefetch(gprs[cpu.PC]);
+            mmu.waitPrefetch(gprs[cpu.PC]);
             const m = (gprs[rm] >>> 0) + (!!cpu.cpsrC?1:0);
             const oldD = gprs[rd];
             const d = (oldD >>> 0) + m;
@@ -42,8 +47,9 @@ export default class ARMCoreThumb implements ICompilerThumb {
     constructADD1(rd: number, rn: number, immediate: number): IInstruction {
         const cpu = this.cpu;
         const gprs = cpu.gprs;
+        const mmu = this.getMMU();
         return function() {
-            cpu.mmu.waitPrefetch(gprs[cpu.PC]);
+            mmu.waitPrefetch(gprs[cpu.PC]);
             const d = (gprs[rn] >>> 0) + immediate;
             cpu.cpsrN = d >> 31;
             cpu.cpsrZ = (!(d & 0xFFFFFFFF))?1:0;
@@ -61,8 +67,9 @@ export default class ARMCoreThumb implements ICompilerThumb {
     constructADD2(rn: number, immediate: number): IInstruction {
         const cpu = this.cpu;
         const gprs = cpu.gprs;
+        const mmu = this.getMMU();
         return function() {
-            cpu.mmu.waitPrefetch(gprs[cpu.PC]);
+            mmu.waitPrefetch(gprs[cpu.PC]);
             const d = (gprs[rn] >>> 0) + immediate;
             cpu.cpsrN = d >> 31;
             cpu.cpsrZ = (!(d & 0xFFFFFFFF))?1:0;
@@ -81,8 +88,9 @@ export default class ARMCoreThumb implements ICompilerThumb {
     constructADD3(rd: number, rn: number, rm: number): IInstruction {
         const cpu = this.cpu;
         const gprs = cpu.gprs;
+        const mmu = this.getMMU();
         return function() {
-            cpu.mmu.waitPrefetch(gprs[cpu.PC]);
+            mmu.waitPrefetch(gprs[cpu.PC]);
             const d = (gprs[rn] >>> 0) + (gprs[rm] >>> 0);
             cpu.cpsrN = d >> 31;
             cpu.cpsrZ = (!(d & 0xFFFFFFFF))?1:0;
@@ -100,8 +108,9 @@ export default class ARMCoreThumb implements ICompilerThumb {
     constructADD4(rd: number, rm:number): IInstruction {
         const cpu = this.cpu;
         const gprs = cpu.gprs;
+        const mmu = this.getMMU();
         return function() {
-            cpu.mmu.waitPrefetch(gprs[cpu.PC]);
+            mmu.waitPrefetch(gprs[cpu.PC]);
             gprs[rd] += gprs[rm];
         };
     }
@@ -114,8 +123,9 @@ export default class ARMCoreThumb implements ICompilerThumb {
     constructADD5(rd: number, immediate: number): IInstruction {
         const cpu = this.cpu;
         const gprs = cpu.gprs;
+        const mmu = this.getMMU();
         return function() {
-            cpu.mmu.waitPrefetch(gprs[cpu.PC]);
+            mmu.waitPrefetch(gprs[cpu.PC]);
             gprs[rd] = (gprs[cpu.PC] & 0xFFFFFFFC) + immediate;
         };
     }
@@ -128,8 +138,9 @@ export default class ARMCoreThumb implements ICompilerThumb {
     constructADD6(rd: number, immediate: number): IInstruction {
         const cpu = this.cpu;
         const gprs = cpu.gprs;
+        const mmu = this.getMMU();
         return function() {
-            cpu.mmu.waitPrefetch(gprs[cpu.PC]);
+            mmu.waitPrefetch(gprs[cpu.PC]);
             gprs[rd] = gprs[cpu.SP] + immediate;
         };
     }
@@ -141,8 +152,9 @@ export default class ARMCoreThumb implements ICompilerThumb {
     constructADD7(immediate: number): IInstruction {
         const cpu = this.cpu;
         const gprs = cpu.gprs;
+        const mmu = this.getMMU();
         return function() {
-            cpu.mmu.waitPrefetch(gprs[cpu.PC]);
+            mmu.waitPrefetch(gprs[cpu.PC]);
             gprs[cpu.SP] += immediate;
         };
     }
@@ -155,8 +167,9 @@ export default class ARMCoreThumb implements ICompilerThumb {
     constructAND(rd: number, rm:number): IInstruction {
         const cpu = this.cpu;
         const gprs = cpu.gprs;
+        const mmu = this.getMMU();
         return function() {
-            cpu.mmu.waitPrefetch(gprs[cpu.PC]);
+            mmu.waitPrefetch(gprs[cpu.PC]);
             gprs[rd] = gprs[rd] & gprs[rm];
             cpu.cpsrN = gprs[rd] >> 31;
             cpu.cpsrZ = (!(gprs[rd] & 0xFFFFFFFF))?1:0;
@@ -172,8 +185,9 @@ export default class ARMCoreThumb implements ICompilerThumb {
     constructASR1(rd: number, rm:number, immediate: number): IInstruction {
         const cpu = this.cpu;
         const gprs = cpu.gprs;
+        const mmu = this.getMMU();
         return function() {
-            cpu.mmu.waitPrefetch(gprs[cpu.PC]);
+            mmu.waitPrefetch(gprs[cpu.PC]);
             if (immediate == 0) {
                 cpu.cpsrC = gprs[rm] >> 31;
                 if (cpu.cpsrC) {
@@ -198,8 +212,9 @@ export default class ARMCoreThumb implements ICompilerThumb {
     constructASR2(rd: number, rm:number): IInstruction {
         const cpu = this.cpu;
         const gprs = cpu.gprs;
+        const mmu = this.getMMU();
         return function() {
-            cpu.mmu.waitPrefetch(gprs[cpu.PC]);
+            mmu.waitPrefetch(gprs[cpu.PC]);
             var rs = gprs[rm] & 0xFF;
             if (rs) {
                 if (rs < 32) {
@@ -227,8 +242,9 @@ export default class ARMCoreThumb implements ICompilerThumb {
     constructB1(immediate: number, condOp: IConditionOperator): IInstruction {
         const cpu = this.cpu;
         const gprs = cpu.gprs;
+        const mmu = this.getMMU();
         return function() {
-            cpu.mmu.waitPrefetch(gprs[cpu.PC]);
+            mmu.waitPrefetch(gprs[cpu.PC]);
             if (condOp()) {
                 gprs[cpu.PC] += immediate;
             }
@@ -242,8 +258,9 @@ export default class ARMCoreThumb implements ICompilerThumb {
     constructB2(immediate: number): IInstruction {
         const cpu = this.cpu;
         const gprs = cpu.gprs;
+        const mmu = this.getMMU();
         return function() {
-            cpu.mmu.waitPrefetch(gprs[cpu.PC]);
+            mmu.waitPrefetch(gprs[cpu.PC]);
             gprs[cpu.PC] += immediate;
         };
     }
@@ -256,8 +273,9 @@ export default class ARMCoreThumb implements ICompilerThumb {
     constructBIC(rd: number, rm:number): IInstruction {
         const cpu = this.cpu;
         const gprs = cpu.gprs;
+        const mmu = this.getMMU();
         return function() {
-            cpu.mmu.waitPrefetch(gprs[cpu.PC]);
+            mmu.waitPrefetch(gprs[cpu.PC]);
             gprs[rd] = gprs[rd] & ~gprs[rm];
             cpu.cpsrN = gprs[rd] >> 31;
             cpu.cpsrZ = (!(gprs[rd] & 0xFFFFFFFF))?1:0;
@@ -271,8 +289,9 @@ export default class ARMCoreThumb implements ICompilerThumb {
     constructBL1(immediate:number): IInstruction {
         const cpu = this.cpu;
         const gprs = cpu.gprs;
+        const mmu = this.getMMU();
         return function() {
-            cpu.mmu.waitPrefetch(gprs[cpu.PC]);
+            mmu.waitPrefetch(gprs[cpu.PC]);
             gprs[cpu.LR] = gprs[cpu.PC] + immediate;
         }
     }
@@ -284,8 +303,9 @@ export default class ARMCoreThumb implements ICompilerThumb {
     constructBL2(immediate:number): IInstruction {
         const cpu = this.cpu;
         const gprs = cpu.gprs;
+        const mmu = this.getMMU();
         return function() {
-            cpu.mmu.waitPrefetch(gprs[cpu.PC]);
+            mmu.waitPrefetch(gprs[cpu.PC]);
             var pc = gprs[cpu.PC];
             gprs[cpu.PC] = gprs[cpu.LR] + (immediate << 1);
             gprs[cpu.LR] = pc - 1;
@@ -300,8 +320,9 @@ export default class ARMCoreThumb implements ICompilerThumb {
     constructBX(rd: number, rm:number): IInstruction {
         const cpu = this.cpu;
         const gprs = cpu.gprs;
+        const mmu = this.getMMU();
         return function() {
-            cpu.mmu.waitPrefetch(gprs[cpu.PC]);
+            mmu.waitPrefetch(gprs[cpu.PC]);
             cpu.switchExecMode(gprs[rm] & 0x00000001);
             let misalign = 0;
             if (rm == 15) {
@@ -319,8 +340,9 @@ export default class ARMCoreThumb implements ICompilerThumb {
     constructCMN(rd: number, rm:number): IInstruction {
         const cpu = this.cpu;
         const gprs = cpu.gprs;
+        const mmu = this.getMMU();
         return function() {
-            cpu.mmu.waitPrefetch(gprs[cpu.PC]);
+            mmu.waitPrefetch(gprs[cpu.PC]);
             var aluOut = (gprs[rd] >>> 0) + (gprs[rm] >>> 0);
             cpu.cpsrN = aluOut >> 31;
             cpu.cpsrZ = (!(aluOut & 0xFFFFFFFF))?1:0;
@@ -339,9 +361,10 @@ export default class ARMCoreThumb implements ICompilerThumb {
     constructCMP1(rn: number, immediate: number): IInstruction {
         const cpu = this.cpu;
         const gprs = cpu.gprs;
+        const mmu = this.getMMU();
         return function() {
-            cpu.mmu.waitPrefetch(gprs[cpu.PC]);
-            var aluOut = gprs[rn] - immediate;
+            mmu.waitPrefetch(gprs[cpu.PC]);
+            const aluOut = gprs[rn] - immediate;
             cpu.cpsrN = aluOut >> 31;
             cpu.cpsrZ = (!(aluOut & 0xFFFFFFFF))?1:0;
             cpu.cpsrC = ((gprs[rn] >>> 0) >= immediate)?1:0;
@@ -357,8 +380,9 @@ export default class ARMCoreThumb implements ICompilerThumb {
     constructCMP2(rd: number, rm:number): IInstruction {
         const cpu = this.cpu;
         const gprs = cpu.gprs;
+        const mmu = this.getMMU();
         return function() {
-            cpu.mmu.waitPrefetch(gprs[cpu.PC]);
+            mmu.waitPrefetch(gprs[cpu.PC]);
             const d = gprs[rd];
             const m = gprs[rm];
             const aluOut = d - m;
@@ -379,8 +403,9 @@ export default class ARMCoreThumb implements ICompilerThumb {
     constructCMP3(rd: number, rm:number): IInstruction {
         const cpu = this.cpu;
         const gprs = cpu.gprs;
+        const mmu = this.getMMU();
         return function() {
-            cpu.mmu.waitPrefetch(gprs[cpu.PC]);
+            mmu.waitPrefetch(gprs[cpu.PC]);
             const aluOut = gprs[rd] - gprs[rm];
             cpu.cpsrN = aluOut >> 31;
             cpu.cpsrZ = (!(aluOut & 0xFFFFFFFF))?1:0;
@@ -397,8 +422,9 @@ export default class ARMCoreThumb implements ICompilerThumb {
     constructEOR(rd: number, rm:number): IInstruction {
         const cpu = this.cpu;
         const gprs = cpu.gprs;
+        const mmu = this.getMMU();
         return function() {
-            cpu.mmu.waitPrefetch(gprs[cpu.PC]);
+            mmu.waitPrefetch(gprs[cpu.PC]);
             gprs[rd] = gprs[rd] ^ gprs[rm];
             cpu.cpsrN = gprs[rd] >> 31;
             cpu.cpsrZ = (!(gprs[rd] & 0xFFFFFFFF))?1:0;
@@ -413,19 +439,20 @@ export default class ARMCoreThumb implements ICompilerThumb {
     constructLDMIA(rn: number, rs: number): IInstruction {
         const cpu = this.cpu;
         const gprs = cpu.gprs;
+        const mmu = this.getMMU();
         return function() {
-            cpu.mmu.waitPrefetch(gprs[cpu.PC]);
+            mmu.waitPrefetch(gprs[cpu.PC]);
             let address = gprs[rn];
             let total = 0;
             let m, i;
             for (m = 0x01, i = 0; i < 8; m <<= 1, ++i) {
                 if (rs & m) {
-                    gprs[i] = cpu.mmu.load32(address);
+                    gprs[i] = mmu.load32(address);
                     address += 4;
                     ++total;
                 }
             }
-            cpu.mmu.waitMulti32(address, total);
+            mmu.waitMulti32(address, total);
             if (!((1 << rn) & rs)) {
                 gprs[rn] = address;
             }
@@ -441,11 +468,12 @@ export default class ARMCoreThumb implements ICompilerThumb {
     constructLDR1(rd: number, rn: number, immediate: number) : IInstruction{
         const cpu = this.cpu;
         const gprs = cpu.gprs;
+        const mmu = this.getMMU();
         return function() {
-            cpu.mmu.waitPrefetch(gprs[cpu.PC]);
+            mmu.waitPrefetch(gprs[cpu.PC]);
             const n = gprs[rn] + immediate;
-            gprs[rd] = cpu.mmu.load32(n);
-            cpu.mmu.wait32(n);
+            gprs[rd] = mmu.load32(n);
+            mmu.wait32(n);
             ++cpu.cycles;
         };
     }
@@ -459,10 +487,11 @@ export default class ARMCoreThumb implements ICompilerThumb {
     constructLDR2(rd: number, rn: number, rm:number): IInstruction {
         const cpu = this.cpu;
         const gprs = cpu.gprs;
+        const mmu = this.getMMU();
         return function() {
-            cpu.mmu.waitPrefetch(gprs[cpu.PC]);
-            gprs[rd] = cpu.mmu.load32(gprs[rn] + gprs[rm]);
-            cpu.mmu.wait32(gprs[rn] + gprs[rm]);
+            mmu.waitPrefetch(gprs[cpu.PC]);
+            gprs[rd] = mmu.load32(gprs[rn] + gprs[rm]);
+            mmu.wait32(gprs[rn] + gprs[rm]);
             ++cpu.cycles;
         }
     }
@@ -475,10 +504,11 @@ export default class ARMCoreThumb implements ICompilerThumb {
     constructLDR3(rd: number, immediate: number): IInstruction {
         const cpu = this.cpu;
         const gprs = cpu.gprs;
+        const mmu = this.getMMU();
         return function() {
-            cpu.mmu.waitPrefetch(gprs[cpu.PC]);
-            gprs[rd] = cpu.mmu.load32((gprs[cpu.PC] & 0xFFFFFFFC) + immediate);
-            cpu.mmu.wait32(gprs[cpu.PC]);
+            mmu.waitPrefetch(gprs[cpu.PC]);
+            gprs[rd] = mmu.load32((gprs[cpu.PC] & 0xFFFFFFFC) + immediate);
+            mmu.wait32(gprs[cpu.PC]);
             ++cpu.cycles;
         };
     }
@@ -491,10 +521,11 @@ export default class ARMCoreThumb implements ICompilerThumb {
     constructLDR4(rd: number, immediate: number): IInstruction {
         const cpu = this.cpu;
         const gprs = cpu.gprs;
+        const mmu = this.getMMU();
         return function() {
-            cpu.mmu.waitPrefetch(gprs[cpu.PC]);
-            gprs[rd] = cpu.mmu.load32(gprs[cpu.SP] + immediate);
-            cpu.mmu.wait32(gprs[cpu.SP] + immediate);
+            mmu.waitPrefetch(gprs[cpu.PC]);
+            gprs[rd] = mmu.load32(gprs[cpu.SP] + immediate);
+            mmu.wait32(gprs[cpu.SP] + immediate);
             ++cpu.cycles;
         };
     }
@@ -508,11 +539,12 @@ export default class ARMCoreThumb implements ICompilerThumb {
     constructLDRB1(rd: number, rn: number, immediate: number) : IInstruction{
         const cpu = this.cpu;
         const gprs = cpu.gprs;
+        const mmu = this.getMMU();
         return function() {
             const n = gprs[rn] + immediate;
-            cpu.mmu.waitPrefetch(gprs[cpu.PC]);
-            gprs[rd] = cpu.mmu.loadU8(n);
-            cpu.mmu.wait(n);
+            mmu.waitPrefetch(gprs[cpu.PC]);
+            gprs[rd] = mmu.loadU8(n);
+            mmu.wait(n);
             ++cpu.cycles;
         };
     }
@@ -526,10 +558,11 @@ export default class ARMCoreThumb implements ICompilerThumb {
     constructLDRB2(rd: number, rn: number, rm:number): IInstruction {
         const cpu = this.cpu;
         const gprs = cpu.gprs;
+        const mmu = this.getMMU();
         return function() {
-            cpu.mmu.waitPrefetch(gprs[cpu.PC]);
-            gprs[rd] = cpu.mmu.loadU8(gprs[rn] + gprs[rm]);
-            cpu.mmu.wait(gprs[rn] + gprs[rm]);
+            mmu.waitPrefetch(gprs[cpu.PC]);
+            gprs[rd] = mmu.loadU8(gprs[rn] + gprs[rm]);
+            mmu.wait(gprs[rn] + gprs[rm]);
             ++cpu.cycles;
         };
     }
@@ -543,11 +576,12 @@ export default class ARMCoreThumb implements ICompilerThumb {
     constructLDRH1(rd: number, rn: number, immediate: number) : IInstruction{
         const cpu = this.cpu;
         const gprs = cpu.gprs;
+        const mmu = this.getMMU();
         return function() {
             const n = gprs[rn] + immediate;
-            cpu.mmu.waitPrefetch(gprs[cpu.PC]);
-            gprs[rd] = cpu.mmu.loadU16(n);
-            cpu.mmu.wait(n);
+            mmu.waitPrefetch(gprs[cpu.PC]);
+            gprs[rd] = mmu.loadU16(n);
+            mmu.wait(n);
             ++cpu.cycles;
         };
     }
@@ -561,10 +595,11 @@ export default class ARMCoreThumb implements ICompilerThumb {
     constructLDRH2(rd: number, rn: number, rm:number): IInstruction {
         const cpu = this.cpu;
         const gprs = cpu.gprs;
+        const mmu = this.getMMU();
         return function() {
-            cpu.mmu.waitPrefetch(gprs[cpu.PC]);
-            gprs[rd] = cpu.mmu.loadU16(gprs[rn] + gprs[rm]);
-            cpu.mmu.wait(gprs[rn] + gprs[rm]);
+            mmu.waitPrefetch(gprs[cpu.PC]);
+            gprs[rd] = mmu.loadU16(gprs[rn] + gprs[rm]);
+            mmu.wait(gprs[rn] + gprs[rm]);
             ++cpu.cycles;
         };
     }
@@ -578,10 +613,11 @@ export default class ARMCoreThumb implements ICompilerThumb {
     constructLDRSB(rd: number, rn: number, rm:number): IInstruction {
         const cpu = this.cpu;
         const gprs = cpu.gprs;
+        const mmu = this.getMMU();
         return function() {
-            cpu.mmu.waitPrefetch(gprs[cpu.PC]);
-            gprs[rd] = cpu.mmu.load8(gprs[rn] + gprs[rm]);
-            cpu.mmu.wait(gprs[rn] + gprs[rm]);
+            mmu.waitPrefetch(gprs[cpu.PC]);
+            gprs[rd] = mmu.load8(gprs[rn] + gprs[rm]);
+            mmu.wait(gprs[rn] + gprs[rm]);
             ++cpu.cycles;
         };
     }
@@ -595,10 +631,11 @@ export default class ARMCoreThumb implements ICompilerThumb {
     constructLDRSH(rd: number, rn: number, rm:number): IInstruction {
         const cpu = this.cpu;
         const gprs = cpu.gprs;
+        const mmu = this.getMMU();
         return function() {
-            cpu.mmu.waitPrefetch(gprs[cpu.PC]);
-            gprs[rd] = cpu.mmu.load16(gprs[rn] + gprs[rm]);
-            cpu.mmu.wait(gprs[rn] + gprs[rm]);
+            mmu.waitPrefetch(gprs[cpu.PC]);
+            gprs[rd] = mmu.load16(gprs[rn] + gprs[rm]);
+            mmu.wait(gprs[rn] + gprs[rm]);
             ++cpu.cycles;
         };
     }
@@ -612,8 +649,9 @@ export default class ARMCoreThumb implements ICompilerThumb {
     constructLSL1(rd: number, rm:number, immediate: number): IInstruction {
         const cpu = this.cpu;
         const gprs = cpu.gprs;
+        const mmu = this.getMMU();
         return function() {
-            cpu.mmu.waitPrefetch(gprs[cpu.PC]);
+            mmu.waitPrefetch(gprs[cpu.PC]);
             if (immediate == 0) {
                 gprs[rd] = gprs[rm];
             } else {
@@ -633,8 +671,9 @@ export default class ARMCoreThumb implements ICompilerThumb {
     constructLSL2(rd: number, rm:number): IInstruction {
         const cpu = this.cpu;
         const gprs = cpu.gprs;
+        const mmu = this.getMMU();
         return function() {
-            cpu.mmu.waitPrefetch(gprs[cpu.PC]);
+            mmu.waitPrefetch(gprs[cpu.PC]);
             const rs = gprs[rm] & 0xFF;
             if (rs) {
                 if (rs < 32) {
@@ -663,8 +702,9 @@ export default class ARMCoreThumb implements ICompilerThumb {
     constructLSR1(rd: number, rm:number, immediate: number): IInstruction {
         const cpu = this.cpu;
         const gprs = cpu.gprs;
+        const mmu = this.getMMU();
         return function() {
-            cpu.mmu.waitPrefetch(gprs[cpu.PC]);
+            mmu.waitPrefetch(gprs[cpu.PC]);
             if (immediate == 0) {
                 cpu.cpsrC = gprs[rm] >> 31;
                 gprs[rd] = 0;
@@ -685,8 +725,9 @@ export default class ARMCoreThumb implements ICompilerThumb {
     constructLSR2(rd: number, rm:number): IInstruction {
         const cpu = this.cpu;
         const gprs = cpu.gprs;
+        const mmu = this.getMMU();
         return function() {
-            cpu.mmu.waitPrefetch(gprs[cpu.PC]);
+            mmu.waitPrefetch(gprs[cpu.PC]);
             const rs = gprs[rm] & 0xFF;
             if (rs) {
                 if (rs < 32) {
@@ -714,8 +755,9 @@ export default class ARMCoreThumb implements ICompilerThumb {
     constructMOV1(rn: number, immediate: number): IInstruction {
         const cpu = this.cpu;
         const gprs = cpu.gprs;
+        const mmu = this.getMMU();
         return function() {
-            cpu.mmu.waitPrefetch(gprs[cpu.PC]);
+            mmu.waitPrefetch(gprs[cpu.PC]);
             gprs[rn] = immediate;
             cpu.cpsrN = immediate >> 31;
             cpu.cpsrZ = (!(immediate & 0xFFFFFFFF))?1:0;
@@ -731,8 +773,9 @@ export default class ARMCoreThumb implements ICompilerThumb {
     constructMOV2(rd: number, rn: number, rm:number): IInstruction {
         const cpu = this.cpu;
         const gprs = cpu.gprs;
+        const mmu = this.getMMU();
         return function() {
-            cpu.mmu.waitPrefetch(gprs[cpu.PC]);
+            mmu.waitPrefetch(gprs[cpu.PC]);
             const d = gprs[rn];
             cpu.cpsrN = d >> 31;
             cpu.cpsrZ = (!(d & 0xFFFFFFFF))?1:0;
@@ -750,8 +793,9 @@ export default class ARMCoreThumb implements ICompilerThumb {
     constructMOV3(rd: number, rm:number): IInstruction {
         const cpu = this.cpu;
         const gprs = cpu.gprs;
+        const mmu = this.getMMU();
         return function() {
-            cpu.mmu.waitPrefetch(gprs[cpu.PC]);
+            mmu.waitPrefetch(gprs[cpu.PC]);
             gprs[rd] = gprs[rm];
         };
     }
@@ -764,9 +808,10 @@ export default class ARMCoreThumb implements ICompilerThumb {
     constructMUL(rd: number, rm:number): IInstruction {
         const cpu = this.cpu;
         const gprs = cpu.gprs;
+        const mmu = this.getMMU();
         return function() {
-            cpu.mmu.waitPrefetch(gprs[cpu.PC]);
-            cpu.mmu.waitMul(gprs[rm]);
+            mmu.waitPrefetch(gprs[cpu.PC]);
+            mmu.waitMul(gprs[rm]);
             if ((gprs[rm] & 0xFFFF0000) && (gprs[rd] & 0xFFFF0000)) {
                 // Our data type is a double--we'll lose bits if we do it all at once!
                 const hi = ((gprs[rd] & 0xFFFF0000) * gprs[rm]) & 0xFFFFFFFF;
@@ -788,8 +833,9 @@ export default class ARMCoreThumb implements ICompilerThumb {
     constructMVN(rd: number, rm:number): IInstruction {
         const cpu = this.cpu;
         const gprs = cpu.gprs;
+        const mmu = this.getMMU();
         return function() {
-            cpu.mmu.waitPrefetch(gprs[cpu.PC]);
+            mmu.waitPrefetch(gprs[cpu.PC]);
             gprs[rd] = ~gprs[rm];
             cpu.cpsrN = gprs[rd] >> 31;
             cpu.cpsrZ = (!(gprs[rd] & 0xFFFFFFFF))?1:0;
@@ -804,8 +850,9 @@ export default class ARMCoreThumb implements ICompilerThumb {
     constructNEG(rd: number, rm:number): IInstruction {
         const cpu = this.cpu;
         const gprs = cpu.gprs;
+        const mmu = this.getMMU();
         return function() {
-            cpu.mmu.waitPrefetch(gprs[cpu.PC]);
+            mmu.waitPrefetch(gprs[cpu.PC]);
             const d = -gprs[rm];
             cpu.cpsrN = d >> 31;
             cpu.cpsrZ = (!(d & 0xFFFFFFFF))?1:0;
@@ -823,8 +870,9 @@ export default class ARMCoreThumb implements ICompilerThumb {
     constructORR(rd: number, rm:number): IInstruction {
         const cpu = this.cpu;
         const gprs = cpu.gprs;
+        const mmu = this.getMMU();
         return function() {
-            cpu.mmu.waitPrefetch(gprs[cpu.PC]);
+            mmu.waitPrefetch(gprs[cpu.PC]);
             gprs[rd] = gprs[rd] | gprs[rm];
             cpu.cpsrN = gprs[rd] >> 31;
             cpu.cpsrZ = (!(gprs[rd] & 0xFFFFFFFF))?1:0;
@@ -839,26 +887,27 @@ export default class ARMCoreThumb implements ICompilerThumb {
     constructPOP(rs: number, r: boolean): IInstruction {
         const cpu = this.cpu;
         const gprs = cpu.gprs;
+        const mmu = this.getMMU();
         return function() {
-            cpu.mmu.waitPrefetch(gprs[cpu.PC]);
+            mmu.waitPrefetch(gprs[cpu.PC]);
             ++cpu.cycles;
             let address = gprs[cpu.SP];
             let total = 0;
             let m, i;
             for (m = 0x01, i = 0; i < 8; m <<= 1, ++i) {
                 if (rs & m) {
-                    cpu.mmu.waitSeq32(address);
-                    gprs[i] = cpu.mmu.load32(address);
+                    mmu.waitSeq32(address);
+                    gprs[i] = mmu.load32(address);
                     address += 4;
                     ++total;
                 }
             }
             if (r) {
-                gprs[cpu.PC] = cpu.mmu.load32(address) & 0xFFFFFFFE;
+                gprs[cpu.PC] = mmu.load32(address) & 0xFFFFFFFE;
                 address += 4;
                 ++total;
             }
-            cpu.mmu.waitMulti32(address, total);
+            mmu.waitMulti32(address, total);
             gprs[cpu.SP] = address;
         };
     }
@@ -871,19 +920,20 @@ export default class ARMCoreThumb implements ICompilerThumb {
     constructPUSH(rs: number, r: boolean): IInstruction {
         const cpu = this.cpu;
         const gprs = cpu.gprs;
+        const mmu = this.getMMU();
         return function() {
             let address = gprs[cpu.SP] - 4;
             let total = 0;
-            cpu.mmu.waitPrefetch(gprs[cpu.PC]);
+            mmu.waitPrefetch(gprs[cpu.PC]);
             if (r) {
-                cpu.mmu.store32(address, gprs[cpu.LR]);
+                mmu.store32(address, gprs[cpu.LR]);
                 address -= 4;
                 ++total;
             }
             let m, i;
             for (m = 0x80, i = 7; m; m >>= 1, --i) {
                 if (rs & m) {
-                    cpu.mmu.store32(address, gprs[i]);
+                    mmu.store32(address, gprs[i]);
                     address -= 4;
                     ++total;
                     break;
@@ -891,12 +941,12 @@ export default class ARMCoreThumb implements ICompilerThumb {
             }
             for (m >>= 1, --i; m; m >>= 1, --i) {
                 if (rs & m) {
-                    cpu.mmu.store32(address, gprs[i]);
+                    mmu.store32(address, gprs[i]);
                     address -= 4;
                     ++total;
                 }
             }
-            cpu.mmu.waitMulti32(address, total);
+            mmu.waitMulti32(address, total);
             gprs[cpu.SP] = address + 4;
         };
     }
@@ -909,8 +959,9 @@ export default class ARMCoreThumb implements ICompilerThumb {
     constructROR(rd: number, rm:number): IInstruction {
         const cpu = this.cpu;
         const gprs = cpu.gprs;
+        const mmu = this.getMMU();
         return function() {
-            cpu.mmu.waitPrefetch(gprs[cpu.PC]);
+            mmu.waitPrefetch(gprs[cpu.PC]);
             var rs = gprs[rm] & 0xFF;
             if (rs) {
                 var r4 = rs & 0x1F;
@@ -934,8 +985,9 @@ export default class ARMCoreThumb implements ICompilerThumb {
     constructSBC(rd: number, rm:number): IInstruction {
         const cpu = this.cpu;
         const gprs = cpu.gprs;
+        const mmu = this.getMMU();
         return function() {
-            cpu.mmu.waitPrefetch(gprs[cpu.PC]);
+            mmu.waitPrefetch(gprs[cpu.PC]);
             const m = (gprs[rm] >>> 0) + (cpu.cpsrC>0?1:0);
             const d = (gprs[rd] >>> 0) - m;
             cpu.cpsrN = d >> 31;
@@ -954,14 +1006,15 @@ export default class ARMCoreThumb implements ICompilerThumb {
     constructSTMIA(rn: number, rs: number): IInstruction {
         const cpu = this.cpu;
         const gprs = cpu.gprs;
+        const mmu = this.getMMU();
         return function() {
-            cpu.mmu.wait(gprs[cpu.PC]);
+            mmu.wait(gprs[cpu.PC]);
             let address = gprs[rn];
             let total = 0;
             let m, i;
             for (m = 0x01, i = 0; i < 8; m <<= 1, ++i) {
                 if (rs & m) {
-                    cpu.mmu.store32(address, gprs[i]);
+                    mmu.store32(address, gprs[i]);
                     address += 4;
                     ++total;
                     break;
@@ -969,12 +1022,12 @@ export default class ARMCoreThumb implements ICompilerThumb {
             }
             for (m <<= 1, ++i; i < 8; m <<= 1, ++i) {
                 if (rs & m) {
-                    cpu.mmu.store32(address, gprs[i]);
+                    mmu.store32(address, gprs[i]);
                     address += 4;
                     ++total;
                 }
             }
-            cpu.mmu.waitMulti32(address, total);
+            mmu.waitMulti32(address, total);
             gprs[rn] = address;
         };
     }
@@ -988,11 +1041,12 @@ export default class ARMCoreThumb implements ICompilerThumb {
     constructSTR1(rd: number, rn: number, immediate: number) : IInstruction{
         const cpu = this.cpu;
         const gprs = cpu.gprs;
+        const mmu = this.getMMU();
         return function() {
-            var n = gprs[rn] + immediate;
-            cpu.mmu.store32(n, gprs[rd]);
-            cpu.mmu.wait(gprs[cpu.PC]);
-            cpu.mmu.wait32(n);
+            const n = gprs[rn] + immediate;
+            mmu.store32(n, gprs[rd]);
+            mmu.wait(gprs[cpu.PC]);
+            mmu.wait32(n);
         };
     }
     
@@ -1005,10 +1059,11 @@ export default class ARMCoreThumb implements ICompilerThumb {
     constructSTR2(rd: number, rn: number, rm:number): IInstruction {
         const cpu = this.cpu;
         const gprs = cpu.gprs;
+        const mmu = this.getMMU();
         return function() {
-            cpu.mmu.store32(gprs[rn] + gprs[rm], gprs[rd]);
-            cpu.mmu.wait(gprs[cpu.PC]);
-            cpu.mmu.wait32(gprs[rn] + gprs[rm]);
+            mmu.store32(gprs[rn] + gprs[rm], gprs[rd]);
+            mmu.wait(gprs[cpu.PC]);
+            mmu.wait32(gprs[rn] + gprs[rm]);
         };
     }
     
@@ -1020,10 +1075,11 @@ export default class ARMCoreThumb implements ICompilerThumb {
     constructSTR3(rd: number, immediate: number): IInstruction {
         const cpu = this.cpu;
         const gprs = cpu.gprs;
+        const mmu = this.getMMU();
         return function() {
-            cpu.mmu.store32(gprs[cpu.SP] + immediate, gprs[rd]);
-            cpu.mmu.wait(gprs[cpu.PC]);
-            cpu.mmu.wait32(gprs[cpu.SP] + immediate);
+            mmu.store32(gprs[cpu.SP] + immediate, gprs[rd]);
+            mmu.wait(gprs[cpu.PC]);
+            mmu.wait32(gprs[cpu.SP] + immediate);
         };
     }
     
@@ -1036,11 +1092,12 @@ export default class ARMCoreThumb implements ICompilerThumb {
     constructSTRB1(rd: number, rn: number, immediate: number) : IInstruction{
         const cpu = this.cpu;
         const gprs = cpu.gprs;
+        const mmu = this.getMMU();
         return function() {
-            var n = gprs[rn] + immediate;
-            cpu.mmu.store8(n, gprs[rd]);
-            cpu.mmu.wait(gprs[cpu.PC]);
-            cpu.mmu.wait(n);
+            const n = gprs[rn] + immediate;
+            mmu.store8(n, gprs[rd]);
+            mmu.wait(gprs[cpu.PC]);
+            mmu.wait(n);
         };
     }
     
@@ -1053,10 +1110,11 @@ export default class ARMCoreThumb implements ICompilerThumb {
     constructSTRB2(rd: number, rn: number, rm:number): IInstruction {
         const cpu = this.cpu;
         const gprs = cpu.gprs;
+        const mmu = this.getMMU();
         return function() {
-            cpu.mmu.store8(gprs[rn] + gprs[rm], gprs[rd]);
-            cpu.mmu.wait(gprs[cpu.PC]);
-            cpu.mmu.wait(gprs[rn] + gprs[rm]);
+            mmu.store8(gprs[rn] + gprs[rm], gprs[rd]);
+            mmu.wait(gprs[cpu.PC]);
+            mmu.wait(gprs[rn] + gprs[rm]);
         }
     }
     
@@ -1069,11 +1127,12 @@ export default class ARMCoreThumb implements ICompilerThumb {
     constructSTRH1(rd: number, rn: number, immediate: number) : IInstruction{
         const cpu = this.cpu;
         const gprs = cpu.gprs;
+        const mmu = this.getMMU();
         return function() {
             const n = gprs[rn] + immediate;
-            cpu.mmu.store16(n, gprs[rd]);
-            cpu.mmu.wait(gprs[cpu.PC]);
-            cpu.mmu.wait(n);
+            mmu.store16(n, gprs[rd]);
+            mmu.wait(gprs[cpu.PC]);
+            mmu.wait(n);
         };
     }
     
@@ -1086,10 +1145,11 @@ export default class ARMCoreThumb implements ICompilerThumb {
     constructSTRH2(rd: number, rn: number, rm:number): IInstruction {
         const cpu = this.cpu;
         const gprs = cpu.gprs;
+        const mmu = this.getMMU();
         return function() {
-            cpu.mmu.store16(gprs[rn] + gprs[rm], gprs[rd]);
-            cpu.mmu.wait(gprs[cpu.PC]);
-            cpu.mmu.wait(gprs[rn] + gprs[rm]);
+            mmu.store16(gprs[rn] + gprs[rm], gprs[rd]);
+            mmu.wait(gprs[cpu.PC]);
+            mmu.wait(gprs[rn] + gprs[rm]);
         }
     }
     
@@ -1102,8 +1162,9 @@ export default class ARMCoreThumb implements ICompilerThumb {
     constructSUB1(rd: number, rn: number, immediate: number) : IInstruction{
         const cpu = this.cpu;
         const gprs = cpu.gprs;
+        const mmu = this.getMMU();
         return function() {
-            cpu.mmu.waitPrefetch(gprs[cpu.PC]);
+            mmu.waitPrefetch(gprs[cpu.PC]);
             const d = gprs[rn] - immediate;
             cpu.cpsrN = d >> 31;
             cpu.cpsrZ = (!(d & 0xFFFFFFFF))?1:0;
@@ -1121,8 +1182,9 @@ export default class ARMCoreThumb implements ICompilerThumb {
     constructSUB2(rn: number, immediate: number): IInstruction {
         const cpu = this.cpu;
         const gprs = cpu.gprs;
+        const mmu = this.getMMU();
         return function() {
-            cpu.mmu.waitPrefetch(gprs[cpu.PC]);
+            mmu.waitPrefetch(gprs[cpu.PC]);
             var d = gprs[rn] - immediate;
             cpu.cpsrN = d >> 31;
             cpu.cpsrZ = (!(d & 0xFFFFFFFF))?1:0;
@@ -1141,8 +1203,9 @@ export default class ARMCoreThumb implements ICompilerThumb {
     constructSUB3(rd: number, rn: number, rm:number): IInstruction {
         const cpu = this.cpu;
         const gprs = cpu.gprs;
+        const mmu = this.getMMU();
         return function() {
-            cpu.mmu.waitPrefetch(gprs[cpu.PC]);
+            mmu.waitPrefetch(gprs[cpu.PC]);
             const d = gprs[rn] - gprs[rm];
             cpu.cpsrN = d >> 31;
             cpu.cpsrZ = (!(d & 0xFFFFFFFF))?1:0;
@@ -1153,6 +1216,9 @@ export default class ARMCoreThumb implements ICompilerThumb {
         };
     }
     
+    private getIRQ():IIRQ{
+        return this.cpu.core.getIRQ() as IIRQ;
+    }
     /**
      * SWI
      * @param immediate 
@@ -1160,9 +1226,11 @@ export default class ARMCoreThumb implements ICompilerThumb {
     constructSWI(immediate: number): IInstruction {
         const cpu = this.cpu;
         const gprs = cpu.gprs;
+        const mmu = this.getMMU();
+        const irq = this.getIRQ();
         return function() {
-            (cpu.irq as IIRQ).swi(immediate);
-            cpu.mmu.waitPrefetch(gprs[cpu.PC]);
+            irq.swi(immediate);
+            mmu.waitPrefetch(gprs[cpu.PC]);
         }
     }
     
@@ -1174,9 +1242,10 @@ export default class ARMCoreThumb implements ICompilerThumb {
     constructTST(rd: number, rm:number): IInstruction {
         const cpu = this.cpu;
         const gprs = cpu.gprs;
+        const mmu = this.getMMU();
         return function() {
-            cpu.mmu.waitPrefetch(gprs[cpu.PC]);
-            var aluOut = gprs[rd] & gprs[rm];
+            mmu.waitPrefetch(gprs[cpu.PC]);
+            const aluOut = gprs[rd] & gprs[rm];
             cpu.cpsrN = aluOut >> 31;
             cpu.cpsrZ = (!(aluOut & 0xFFFFFFFF))?1:0;
         };

@@ -1,4 +1,4 @@
-import { ICompilerArm, ICPU, IIRQ, ICPUOperator, IConditionOperator, ICPUAddress, IInstruction, ICPUAddress2, ARMMode } from "../interfaces.ts";
+import { ICompilerArm, IGBAMMU, ICPU, IIRQ, ICPUOperator, IConditionOperator, ICPUAddress, IInstruction, ICPUAddress2, ARMMode } from "../interfaces.ts";
 import { SHIFT_32 } from "../constants.ts";
 
 interface ImmediateAddress {
@@ -537,14 +537,19 @@ export default class ARMCoreArm implements ICompilerArm {
     constructAddressingMode4Writeback(immediate: number, offset: number, rn: number, overlap: boolean): ICPUAddress2 {
         const cpu = this.cpu;
         const gprs = cpu.gprs;
+        const mmu = this.getMMU();
         return function (writeInitial: boolean): number {
             var addr = gprs[rn] + immediate;
             if (writeInitial && overlap) {
-                cpu.mmu.store32(gprs[rn] + immediate - 4, gprs[rn]);
+                mmu.store32(gprs[rn] + immediate - 4, gprs[rn]);
             }
             gprs[rn] += offset;
             return addr;
         }
+    }
+
+    private getMMU():IGBAMMU{
+        return this.cpu.core.getMMU() as IGBAMMU;
     }
 
     /**
@@ -553,8 +558,9 @@ export default class ARMCoreArm implements ICompilerArm {
     constructADC(rd: number, rn: number, shiftOp: ICPUOperator, condOp: IConditionOperator | null): IInstruction {
         const cpu = this.cpu;
         const gprs = cpu.gprs;
+        const mmu = this.getMMU();
         return function () {
-            cpu.mmu.waitPrefetch32(gprs[cpu.PC]);
+            mmu.waitPrefetch32(gprs[cpu.PC]);
             if (condOp && !condOp()) {
                 return;
             }
@@ -575,8 +581,9 @@ export default class ARMCoreArm implements ICompilerArm {
     constructADCS(rd: number, rn: number, shiftOp: ICPUOperator, condOp: IConditionOperator): IInstruction {
         const cpu = this.cpu;
         const gprs = cpu.gprs;
+        const mmu = this.getMMU();
         return function () {
-            cpu.mmu.waitPrefetch32(gprs[cpu.PC]);
+            mmu.waitPrefetch32(gprs[cpu.PC]);
             if (condOp && !condOp()) {
                 return;
             }
@@ -608,8 +615,9 @@ export default class ARMCoreArm implements ICompilerArm {
     constructADD(rd: number, rn: number, shiftOp: ICPUOperator, condOp: IConditionOperator): IInstruction {
         const cpu = this.cpu;
         const gprs = cpu.gprs;
+        const mmu = this.getMMU();
         return function () {
-            cpu.mmu.waitPrefetch32(gprs[cpu.PC]);
+            mmu.waitPrefetch32(gprs[cpu.PC]);
             if (condOp && !condOp()) {
                 return;
             }
@@ -628,8 +636,9 @@ export default class ARMCoreArm implements ICompilerArm {
     constructADDS(rd: number, rn: number, shiftOp: ICPUOperator, condOp: IConditionOperator): IInstruction {
         const cpu = this.cpu;
         const gprs = cpu.gprs;
+        const mmu = this.getMMU();
         return function () {
-            cpu.mmu.waitPrefetch32(gprs[cpu.PC]);
+            mmu.waitPrefetch32(gprs[cpu.PC]);
             if (condOp && !condOp()) {
                 return;
             }
@@ -659,8 +668,9 @@ export default class ARMCoreArm implements ICompilerArm {
     constructAND(rd: number, rn: number, shiftOp: ICPUOperator, condOp: IConditionOperator): IInstruction {
         const cpu = this.cpu;
         const gprs = cpu.gprs;
+        const mmu = this.getMMU();
         return function () {
-            cpu.mmu.waitPrefetch32(gprs[cpu.PC]);
+            mmu.waitPrefetch32(gprs[cpu.PC]);
             if (condOp && !condOp()) {
                 return;
             }
@@ -672,8 +682,9 @@ export default class ARMCoreArm implements ICompilerArm {
     constructANDS(rd: number, rn: number, shiftOp: ICPUOperator, condOp: IConditionOperator): IInstruction {
         const cpu = this.cpu;
         const gprs = cpu.gprs;
+        const mmu = this.getMMU();
         return function () {
-            cpu.mmu.waitPrefetch32(gprs[cpu.PC]);
+            mmu.waitPrefetch32(gprs[cpu.PC]);
             if (condOp && !condOp()) {
                 return;
             }
@@ -697,12 +708,13 @@ export default class ARMCoreArm implements ICompilerArm {
     constructB(immediate: number, condOp: IConditionOperator): IInstruction {
         const cpu = this.cpu;
         const gprs = cpu.gprs;
+        const mmu = this.getMMU();
         return function () {
             if (condOp && !condOp()) {
-                cpu.mmu.waitPrefetch32(gprs[cpu.PC]);
+                mmu.waitPrefetch32(gprs[cpu.PC]);
                 return;
             }
-            cpu.mmu.waitPrefetch32(gprs[cpu.PC]);
+            mmu.waitPrefetch32(gprs[cpu.PC]);
             gprs[cpu.PC] += immediate;
         };
     }
@@ -717,8 +729,9 @@ export default class ARMCoreArm implements ICompilerArm {
     constructBIC(rd: number, rn: number, shiftOp: ICPUOperator, condOp: IConditionOperator): IInstruction {
         const cpu = this.cpu;
         const gprs = cpu.gprs;
+        const mmu = this.getMMU();
         return function () {
-            cpu.mmu.waitPrefetch32(gprs[cpu.PC]);
+            mmu.waitPrefetch32(gprs[cpu.PC]);
             if (condOp && !condOp()) {
                 return;
             }
@@ -730,8 +743,9 @@ export default class ARMCoreArm implements ICompilerArm {
     constructBICS(rd: number, rn: number, shiftOp: ICPUOperator, condOp: IConditionOperator): IInstruction {
         const cpu = this.cpu;
         const gprs = cpu.gprs;
+        const mmu = this.getMMU();
         return function () {
-            cpu.mmu.waitPrefetch32(gprs[cpu.PC]);
+            mmu.waitPrefetch32(gprs[cpu.PC]);
             if (condOp && !condOp()) {
                 return;
             }
@@ -755,12 +769,13 @@ export default class ARMCoreArm implements ICompilerArm {
     constructBL(immediate: number, condOp: IConditionOperator): IInstruction {
         const cpu = this.cpu;
         const gprs = cpu.gprs;
+        const mmu = this.getMMU();
         return function () {
             if (condOp && !condOp()) {
-                cpu.mmu.waitPrefetch32(gprs[cpu.PC]);
+                mmu.waitPrefetch32(gprs[cpu.PC]);
                 return;
             }
-            cpu.mmu.waitPrefetch32(gprs[cpu.PC]);
+            mmu.waitPrefetch32(gprs[cpu.PC]);
             gprs[cpu.LR] = gprs[cpu.PC] - 4;
             gprs[cpu.PC] += immediate;
         };
@@ -774,12 +789,13 @@ export default class ARMCoreArm implements ICompilerArm {
     constructBX(rm: number, condOp: IConditionOperator): IInstruction {
         const cpu = this.cpu;
         const gprs = cpu.gprs;
+        const mmu = this.getMMU();
         return function () {
             if (condOp && !condOp()) {
-                cpu.mmu.waitPrefetch32(gprs[cpu.PC]);
+                mmu.waitPrefetch32(gprs[cpu.PC]);
                 return;
             }
-            cpu.mmu.waitPrefetch32(gprs[cpu.PC]);
+            mmu.waitPrefetch32(gprs[cpu.PC]);
             cpu.switchExecMode(gprs[rm] & 0x00000001);
             gprs[cpu.PC] = gprs[rm] & 0xFFFFFFFE;
         };
@@ -795,8 +811,9 @@ export default class ARMCoreArm implements ICompilerArm {
     constructCMN(rd: number, rn: number, shiftOp: ICPUOperator, condOp: IConditionOperator): IInstruction {
         const cpu = this.cpu;
         const gprs = cpu.gprs;
+        const mmu = this.getMMU();
         return function () {
-            cpu.mmu.waitPrefetch32(gprs[cpu.PC]);
+            mmu.waitPrefetch32(gprs[cpu.PC]);
             if (condOp && !condOp()) {
                 return;
             }
@@ -821,8 +838,9 @@ export default class ARMCoreArm implements ICompilerArm {
     constructCMP(rd: number, rn: number, shiftOp: ICPUOperator, condOp: IConditionOperator): IInstruction {
         const cpu = this.cpu;
         const gprs = cpu.gprs;
+        const mmu = this.getMMU();
         return function () {
-            cpu.mmu.waitPrefetch32(gprs[cpu.PC]);
+            mmu.waitPrefetch32(gprs[cpu.PC]);
             if (condOp && !condOp()) {
                 return;
             }
@@ -846,8 +864,9 @@ export default class ARMCoreArm implements ICompilerArm {
     constructEOR(rd: number, rn: number, shiftOp: ICPUOperator, condOp: IConditionOperator): IInstruction {
         const cpu = this.cpu;
         const gprs = cpu.gprs;
+        const mmu = this.getMMU();
         return function () {
-            cpu.mmu.waitPrefetch32(gprs[cpu.PC]);
+            mmu.waitPrefetch32(gprs[cpu.PC]);
             if (condOp && !condOp()) {
                 return;
             }
@@ -866,8 +885,9 @@ export default class ARMCoreArm implements ICompilerArm {
     constructEORS(rd: number, rn: number, shiftOp: ICPUOperator, condOp: IConditionOperator): IInstruction {
         const cpu = this.cpu;
         const gprs = cpu.gprs;
+        const mmu = this.getMMU();
         return function () {
-            cpu.mmu.waitPrefetch32(gprs[cpu.PC]);
+            mmu.waitPrefetch32(gprs[cpu.PC]);
             if (condOp && !condOp()) {
                 return;
             }
@@ -892,7 +912,7 @@ export default class ARMCoreArm implements ICompilerArm {
     constructLDM(rs: number, address: ICPUAddress2, condOp: IConditionOperator): IInstruction {
         const cpu = this.cpu;
         const gprs = cpu.gprs;
-        const mmu = cpu.mmu;
+        const mmu = this.getMMU();
         return function () {
             mmu.waitPrefetch32(gprs[cpu.PC]);
             if (condOp && !condOp()) {
@@ -922,7 +942,7 @@ export default class ARMCoreArm implements ICompilerArm {
     constructLDMS(rs: number, address: ICPUAddress2, condOp: IConditionOperator): IInstruction {
         const cpu = this.cpu;
         const gprs = cpu.gprs;
-        const mmu = cpu.mmu;
+        const mmu = this.getMMU();
         return function () {
             mmu.waitPrefetch32(gprs[cpu.PC]);
             if (condOp && !condOp()) {
@@ -955,14 +975,15 @@ export default class ARMCoreArm implements ICompilerArm {
     constructLDR(rd: number, address: ICPUAddress, condOp: IConditionOperator): IInstruction {
         const cpu = this.cpu;
         const gprs = cpu.gprs;
+        const mmu = this.getMMU();
         return function () {
-            cpu.mmu.waitPrefetch32(gprs[cpu.PC]);
+            mmu.waitPrefetch32(gprs[cpu.PC]);
             if (condOp && !condOp()) {
                 return;
             }
             const addr: number = address();
-            gprs[rd] = cpu.mmu.load32(addr);
-            cpu.mmu.wait32(addr);
+            gprs[rd] = mmu.load32(addr);
+            mmu.wait32(addr);
             ++cpu.cycles;
         };
     }
@@ -976,14 +997,15 @@ export default class ARMCoreArm implements ICompilerArm {
     constructLDRB(rd: number, address: ICPUAddress, condOp: IConditionOperator): IInstruction {
         const cpu = this.cpu;
         const gprs = cpu.gprs;
+        const mmu = this.getMMU();
         return function () {
-            cpu.mmu.waitPrefetch32(gprs[cpu.PC]);
+            mmu.waitPrefetch32(gprs[cpu.PC]);
             if (condOp && !condOp()) {
                 return;
             }
             const addr = address();
-            gprs[rd] = cpu.mmu.loadU8(addr);
-            cpu.mmu.wait(addr);
+            gprs[rd] = mmu.loadU8(addr);
+            mmu.wait(addr);
             ++cpu.cycles;
         };
     }
@@ -997,14 +1019,15 @@ export default class ARMCoreArm implements ICompilerArm {
     constructLDRH(rd: number, address: ICPUAddress, condOp: IConditionOperator): IInstruction {
         const cpu = this.cpu;
         const gprs = cpu.gprs;
+        const mmu = this.getMMU();
         return function () {
-            cpu.mmu.waitPrefetch32(gprs[cpu.PC]);
+            mmu.waitPrefetch32(gprs[cpu.PC]);
             if (condOp && !condOp()) {
                 return;
             }
             const addr = address();
-            gprs[rd] = cpu.mmu.loadU16(addr);
-            cpu.mmu.wait(addr);
+            gprs[rd] = mmu.loadU16(addr);
+            mmu.wait(addr);
             ++cpu.cycles;
         };
     }
@@ -1018,14 +1041,15 @@ export default class ARMCoreArm implements ICompilerArm {
     constructLDRSB(rd: number, address: ICPUAddress, condOp: IConditionOperator): IInstruction {
         const cpu = this.cpu;
         const gprs = cpu.gprs;
+        const mmu = this.getMMU();
         return function () {
-            cpu.mmu.waitPrefetch32(gprs[cpu.PC]);
+            mmu.waitPrefetch32(gprs[cpu.PC]);
             if (condOp && !condOp()) {
                 return;
             }
             const addr = address();
-            gprs[rd] = cpu.mmu.load8(addr);
-            cpu.mmu.wait(addr);
+            gprs[rd] = mmu.load8(addr);
+            mmu.wait(addr);
             ++cpu.cycles;
         };
     }
@@ -1039,14 +1063,15 @@ export default class ARMCoreArm implements ICompilerArm {
     constructLDRSH(rd: number, address: ICPUAddress, condOp: IConditionOperator): IInstruction {
         const cpu = this.cpu;
         const gprs = cpu.gprs;
+        const mmu = this.getMMU();
         return function () {
-            cpu.mmu.waitPrefetch32(gprs[cpu.PC]);
+            mmu.waitPrefetch32(gprs[cpu.PC]);
             if (condOp && !condOp()) {
                 return;
             }
             const addr = address();
-            gprs[rd] = cpu.mmu.load16(addr);
-            cpu.mmu.wait(addr);
+            gprs[rd] = mmu.load16(addr);
+            mmu.wait(addr);
             ++cpu.cycles;
         };
     }
@@ -1062,13 +1087,14 @@ export default class ARMCoreArm implements ICompilerArm {
     constructMLA(rd: number, rn: number, rs: number, rm: number, condOp: IConditionOperator): IInstruction {
         const cpu = this.cpu;
         const gprs = cpu.gprs;
+        const mmu = this.getMMU();
         return function () {
-            cpu.mmu.waitPrefetch32(gprs[cpu.PC]);
+            mmu.waitPrefetch32(gprs[cpu.PC]);
             if (condOp && !condOp()) {
                 return;
             }
             ++cpu.cycles;
-            cpu.mmu.waitMul(rs);
+            mmu.waitMul(rs);
             if ((gprs[rm] & 0xFFFF0000) && (gprs[rs] & 0xFFFF0000)) {
                 // Our data type is a double--we'll lose bits if we do it all at once!
                 const hi = ((gprs[rm] & 0xFFFF0000) * gprs[rs]) & 0xFFFFFFFF;
@@ -1091,13 +1117,14 @@ export default class ARMCoreArm implements ICompilerArm {
     constructMLAS(rd: number, rn: number, rs: number, rm: number, condOp: IConditionOperator): IInstruction {
         const cpu = this.cpu;
         const gprs = cpu.gprs;
+        const mmu = this.getMMU();
         return function () {
-            cpu.mmu.waitPrefetch32(gprs[cpu.PC]);
+            mmu.waitPrefetch32(gprs[cpu.PC]);
             if (condOp && !condOp()) {
                 return;
             }
             ++cpu.cycles;
-            cpu.mmu.waitMul(rs);
+            mmu.waitMul(rs);
             if ((gprs[rm] & 0xFFFF0000) && (gprs[rs] & 0xFFFF0000)) {
                 // Our data type is a double--we'll lose bits if we do it all at once!
                 const hi = ((gprs[rm] & 0xFFFF0000) * gprs[rs]) & 0xFFFFFFFF;
@@ -1121,8 +1148,9 @@ export default class ARMCoreArm implements ICompilerArm {
     constructMOV(rd: number, rn: number, shiftOp: ICPUOperator, condOp: IConditionOperator): IInstruction {
         const cpu = this.cpu;
         const gprs = cpu.gprs;
+        const mmu = this.getMMU();
         return function () {
-            cpu.mmu.waitPrefetch32(gprs[cpu.PC]);
+            mmu.waitPrefetch32(gprs[cpu.PC]);
             if (condOp && !condOp()) {
                 return;
             }
@@ -1141,8 +1169,9 @@ export default class ARMCoreArm implements ICompilerArm {
     constructMOVS(rd: number, rn: number, shiftOp: ICPUOperator, condOp: IConditionOperator): IInstruction {
         const cpu = this.cpu;
         const gprs = cpu.gprs;
+        const mmu = this.getMMU();
         return function () {
-            cpu.mmu.waitPrefetch32(gprs[cpu.PC]);
+            mmu.waitPrefetch32(gprs[cpu.PC]);
             if (condOp && !condOp()) {
                 return;
             }
@@ -1167,8 +1196,9 @@ export default class ARMCoreArm implements ICompilerArm {
     constructMRS(rd: number, r: boolean, condOp: IConditionOperator): IInstruction {
         const cpu = this.cpu;
         const gprs = cpu.gprs;
+        const mmu = this.getMMU();
         return function () {
-            cpu.mmu.waitPrefetch32(gprs[cpu.PC]);
+            mmu.waitPrefetch32(gprs[cpu.PC]);
             if (condOp && !condOp()) {
                 return;
             }
@@ -1193,8 +1223,9 @@ export default class ARMCoreArm implements ICompilerArm {
         const gprs = cpu.gprs;
         const c = instruction & 0x00010000;
         const f = instruction & 0x00080000;
+        const mmu = this.getMMU();
         return function () {
-            cpu.mmu.waitPrefetch32(gprs[cpu.PC]);
+            mmu.waitPrefetch32(gprs[cpu.PC]);
             if (condOp && !condOp()) {
                 return;
             }
@@ -1231,12 +1262,13 @@ export default class ARMCoreArm implements ICompilerArm {
     constructMUL(rd: number, rs: number, rm: number, condOp: IConditionOperator): IInstruction {
         const cpu = this.cpu;
         const gprs = cpu.gprs;
+        const mmu = this.getMMU();
         return function () {
-            cpu.mmu.waitPrefetch32(gprs[cpu.PC]);
+            mmu.waitPrefetch32(gprs[cpu.PC]);
             if (condOp && !condOp()) {
                 return;
             }
-            cpu.mmu.waitMul(gprs[rs]);
+            mmu.waitMul(gprs[rs]);
             if ((gprs[rm] & 0xFFFF0000) && (gprs[rs] & 0xFFFF0000)) {
                 // Our data type is a double--we'll lose bits if we do it all at once!
                 var hi = ((gprs[rm] & 0xFFFF0000) * gprs[rs]) | 0;
@@ -1251,12 +1283,13 @@ export default class ARMCoreArm implements ICompilerArm {
     constructMULS(rd: number, rs: number, rm: number, condOp: IConditionOperator): IInstruction {
         const cpu = this.cpu;
         const gprs = cpu.gprs;
+        const mmu = this.getMMU();
         return function () {
-            cpu.mmu.waitPrefetch32(gprs[cpu.PC]);
+            mmu.waitPrefetch32(gprs[cpu.PC]);
             if (condOp && !condOp()) {
                 return;
             }
-            cpu.mmu.waitMul(gprs[rs]);
+            mmu.waitMul(gprs[rs]);
             if ((gprs[rm] & 0xFFFF0000) && (gprs[rs] & 0xFFFF0000)) {
                 // Our data type is a double--we'll lose bits if we do it all at once!
                 var hi = ((gprs[rm] & 0xFFFF0000) * gprs[rs]) | 0;
@@ -1280,8 +1313,9 @@ export default class ARMCoreArm implements ICompilerArm {
     constructMVN(rd: number, rn: number, shiftOp: ICPUOperator, condOp: IConditionOperator): IInstruction {
         const cpu = this.cpu;
         const gprs = cpu.gprs;
+        const mmu = this.getMMU();
         return function () {
-            cpu.mmu.waitPrefetch32(gprs[cpu.PC]);
+            mmu.waitPrefetch32(gprs[cpu.PC]);
             if (condOp && !condOp()) {
                 return;
             }
@@ -1293,8 +1327,9 @@ export default class ARMCoreArm implements ICompilerArm {
     constructMVNS(rd: number, rn: number, shiftOp: ICPUOperator, condOp: IConditionOperator): IInstruction {
         const cpu = this.cpu;
         const gprs = cpu.gprs;
+        const mmu = this.getMMU();
         return function () {
-            cpu.mmu.waitPrefetch32(gprs[cpu.PC]);
+            mmu.waitPrefetch32(gprs[cpu.PC]);
             if (condOp && !condOp()) {
                 return;
             }
@@ -1320,8 +1355,9 @@ export default class ARMCoreArm implements ICompilerArm {
     constructORR(rd: number, rn: number, shiftOp: ICPUOperator, condOp: IConditionOperator): IInstruction {
         const cpu = this.cpu;
         const gprs = cpu.gprs;
+        const mmu = this.getMMU();
         return function () {
-            cpu.mmu.waitPrefetch32(gprs[cpu.PC]);
+            mmu.waitPrefetch32(gprs[cpu.PC]);
             if (condOp && !condOp()) {
                 return;
             }
@@ -1340,8 +1376,9 @@ export default class ARMCoreArm implements ICompilerArm {
     constructORRS(rd: number, rn: number, shiftOp: ICPUOperator, condOp: IConditionOperator): IInstruction {
         const cpu = this.cpu;
         const gprs = cpu.gprs;
+        const mmu = this.getMMU();
         return function () {
-            cpu.mmu.waitPrefetch32(gprs[cpu.PC]);
+            mmu.waitPrefetch32(gprs[cpu.PC]);
             if (condOp && !condOp()) {
                 return;
             }
@@ -1367,8 +1404,9 @@ export default class ARMCoreArm implements ICompilerArm {
     constructRSB(rd: number, rn: number, shiftOp: ICPUOperator, condOp: IConditionOperator): IInstruction {
         const cpu = this.cpu;
         const gprs = cpu.gprs;
+        const mmu = this.getMMU();
         return function () {
-            cpu.mmu.waitPrefetch32(gprs[cpu.PC]);
+            mmu.waitPrefetch32(gprs[cpu.PC]);
             if (condOp && !condOp()) {
                 return;
             }
@@ -1387,8 +1425,9 @@ export default class ARMCoreArm implements ICompilerArm {
     constructRSBS(rd: number, rn: number, shiftOp: ICPUOperator, condOp: IConditionOperator): IInstruction {
         const cpu = this.cpu;
         const gprs = cpu.gprs;
+        const mmu = this.getMMU();
         return function () {
-            cpu.mmu.waitPrefetch32(gprs[cpu.PC]);
+            mmu.waitPrefetch32(gprs[cpu.PC]);
             if (condOp && !condOp()) {
                 return;
             }
@@ -1417,8 +1456,9 @@ export default class ARMCoreArm implements ICompilerArm {
     constructRSC(rd: number, rn: number, shiftOp: ICPUOperator, condOp: IConditionOperator): IInstruction {
         const cpu = this.cpu;
         const gprs = cpu.gprs;
+        const mmu = this.getMMU();
         return function () {
-            cpu.mmu.waitPrefetch32(gprs[cpu.PC]);
+            mmu.waitPrefetch32(gprs[cpu.PC]);
             if (condOp && !condOp()) {
                 return;
             }
@@ -1431,8 +1471,9 @@ export default class ARMCoreArm implements ICompilerArm {
     constructRSCS(rd: number, rn: number, shiftOp: ICPUOperator, condOp: IConditionOperator): IInstruction {
         const cpu = this.cpu;
         const gprs = cpu.gprs;
+        const mmu = this.getMMU();
         return function () {
-            cpu.mmu.waitPrefetch32(gprs[cpu.PC]);
+            mmu.waitPrefetch32(gprs[cpu.PC]);
             if (condOp && !condOp()) {
                 return;
             }
@@ -1462,8 +1503,9 @@ export default class ARMCoreArm implements ICompilerArm {
     constructSBC(rd: number, rn: number, shiftOp: ICPUOperator, condOp: IConditionOperator): IInstruction {
         const cpu = this.cpu;
         const gprs = cpu.gprs;
+        const mmu = this.getMMU();
         return function () {
-            cpu.mmu.waitPrefetch32(gprs[cpu.PC]);
+            mmu.waitPrefetch32(gprs[cpu.PC]);
             if (condOp && !condOp()) {
                 return;
             }
@@ -1476,8 +1518,9 @@ export default class ARMCoreArm implements ICompilerArm {
     constructSBCS(rd: number, rn: number, shiftOp: ICPUOperator, condOp: IConditionOperator): IInstruction {
         const cpu = this.cpu;
         const gprs = cpu.gprs;
+        const mmu = this.getMMU();
         return function () {
-            cpu.mmu.waitPrefetch32(gprs[cpu.PC]);
+            mmu.waitPrefetch32(gprs[cpu.PC]);
             if (condOp && !condOp()) {
                 return;
             }
@@ -1500,13 +1543,14 @@ export default class ARMCoreArm implements ICompilerArm {
     constructSMLAL(rd: number, rn: number, rs: number, rm: number, condOp: IConditionOperator): IInstruction {
         const cpu = this.cpu;
         const gprs = cpu.gprs;
+        const mmu = this.getMMU();
         return function () {
-            cpu.mmu.waitPrefetch32(gprs[cpu.PC]);
+            mmu.waitPrefetch32(gprs[cpu.PC]);
             if (condOp && !condOp()) {
                 return;
             }
             cpu.cycles += 2;
-            cpu.mmu.waitMul(rs);
+            mmu.waitMul(rs);
             var hi = (gprs[rm] & 0xFFFF0000) * gprs[rs];
             var lo = (gprs[rm] & 0x0000FFFF) * gprs[rs];
             var carry = (gprs[rn] >>> 0) + hi + lo;
@@ -1518,13 +1562,14 @@ export default class ARMCoreArm implements ICompilerArm {
     constructSMLALS(rd: number, rn: number, rs: number, rm: number, condOp: IConditionOperator): IInstruction {
         const cpu = this.cpu;
         const gprs = cpu.gprs;
+        const mmu = this.getMMU();
         return function () {
-            cpu.mmu.waitPrefetch32(gprs[cpu.PC]);
+            mmu.waitPrefetch32(gprs[cpu.PC]);
             if (condOp && !condOp()) {
                 return;
             }
             cpu.cycles += 2;
-            cpu.mmu.waitMul(rs);
+            mmu.waitMul(rs);
             var hi = (gprs[rm] & 0xFFFF0000) * gprs[rs];
             var lo = (gprs[rm] & 0x0000FFFF) * gprs[rs];
             var carry = (gprs[rn] >>> 0) + hi + lo;
@@ -1546,13 +1591,14 @@ export default class ARMCoreArm implements ICompilerArm {
     constructSMULL(rd: number, rn: number, rs: number, rm: number, condOp: IConditionOperator): IInstruction {
         const cpu = this.cpu;
         const gprs = cpu.gprs;
+        const mmu = this.getMMU();
         return function () {
-            cpu.mmu.waitPrefetch32(gprs[cpu.PC]);
+            mmu.waitPrefetch32(gprs[cpu.PC]);
             if (condOp && !condOp()) {
                 return;
             }
             ++cpu.cycles;
-            cpu.mmu.waitMul(gprs[rs]);
+            mmu.waitMul(gprs[rs]);
             var hi = ((gprs[rm] & 0xFFFF0000) >> 0) * (gprs[rs] >> 0);
             var lo = ((gprs[rm] & 0x0000FFFF) >> 0) * (gprs[rs] >> 0);
             gprs[rn] = ((hi & 0xFFFFFFFF) + (lo & 0xFFFFFFFF)) & 0xFFFFFFFF;
@@ -1571,13 +1617,14 @@ export default class ARMCoreArm implements ICompilerArm {
     constructSMULLS(rd: number, rn: number, rs: number, rm: number, condOp: IConditionOperator): IInstruction {
         const cpu = this.cpu;
         const gprs = cpu.gprs;
+        const mmu = this.getMMU();
         return function () {
-            cpu.mmu.waitPrefetch32(gprs[cpu.PC]);
+            mmu.waitPrefetch32(gprs[cpu.PC]);
             if (condOp && !condOp()) {
                 return;
             }
             ++cpu.cycles;
-            cpu.mmu.waitMul(gprs[rs]);
+            mmu.waitMul(gprs[rs]);
             var hi = ((gprs[rm] & 0xFFFF0000) >> 0) * (gprs[rs] >> 0);
             var lo = ((gprs[rm] & 0x0000FFFF) >> 0) * (gprs[rs] >> 0);
             gprs[rn] = ((hi & 0xFFFFFFFF) + (lo & 0xFFFFFFFF)) & 0xFFFFFFFF;
@@ -1596,7 +1643,7 @@ export default class ARMCoreArm implements ICompilerArm {
     constructSTM(rs: number, address: ICPUAddress2, condOp: IConditionOperator): IInstruction {
         const cpu = this.cpu;
         const gprs = cpu.gprs;
-        const mmu = cpu.mmu;
+        const mmu = this.getMMU();
         return function () {
             if (condOp && !condOp()) {
                 mmu.waitPrefetch32(gprs[cpu.PC]);
@@ -1626,7 +1673,7 @@ export default class ARMCoreArm implements ICompilerArm {
     constructSTMS(rs: number, address: ICPUAddress2, condOp: IConditionOperator): IInstruction {
         const cpu = this.cpu;
         const gprs = cpu.gprs;
-        const mmu = cpu.mmu;
+        const mmu = this.getMMU();
         return function () {
             if (condOp && !condOp()) {
                 mmu.waitPrefetch32(gprs[cpu.PC]);
@@ -1659,15 +1706,16 @@ export default class ARMCoreArm implements ICompilerArm {
     constructSTR(rd: number, address: ICPUAddress, condOp: IConditionOperator): IInstruction {
         const cpu = this.cpu;
         const gprs = cpu.gprs;
+        const mmu = this.getMMU();
         return function () {
             if (condOp && !condOp()) {
-                cpu.mmu.waitPrefetch32(gprs[cpu.PC]);
+                mmu.waitPrefetch32(gprs[cpu.PC]);
                 return;
             }
             const addr = address();
-            cpu.mmu.store32(addr, gprs[rd]);
-            cpu.mmu.wait32(addr);
-            cpu.mmu.wait32(gprs[cpu.PC]);
+            mmu.store32(addr, gprs[rd]);
+            mmu.wait32(addr);
+            mmu.wait32(gprs[cpu.PC]);
         };
     }
 
@@ -1680,15 +1728,16 @@ export default class ARMCoreArm implements ICompilerArm {
     constructSTRB(rd: number, address: ICPUAddress, condOp: IConditionOperator): IInstruction {
         const cpu = this.cpu;
         const gprs = cpu.gprs;
+        const mmu = this.getMMU();
         return function () {
             if (condOp && !condOp()) {
-                cpu.mmu.waitPrefetch32(gprs[cpu.PC]);
+                mmu.waitPrefetch32(gprs[cpu.PC]);
                 return;
             }
             const addr = address();
-            cpu.mmu.store8(addr, gprs[rd]);
-            cpu.mmu.wait(addr);
-            cpu.mmu.wait32(gprs[cpu.PC]);
+            mmu.store8(addr, gprs[rd]);
+            mmu.wait(addr);
+            mmu.wait32(gprs[cpu.PC]);
         };
     }
 
@@ -1701,15 +1750,16 @@ export default class ARMCoreArm implements ICompilerArm {
     constructSTRH(rd: number, address: ICPUAddress, condOp: IConditionOperator): IInstruction {
         const cpu = this.cpu;
         const gprs = cpu.gprs;
+        const mmu = this.getMMU();
         return function () {
             if (condOp && !condOp()) {
-                cpu.mmu.waitPrefetch32(gprs[cpu.PC]);
+                mmu.waitPrefetch32(gprs[cpu.PC]);
                 return;
             }
             const addr = address();
-            cpu.mmu.store16(addr, gprs[rd]);
-            cpu.mmu.wait(addr);
-            cpu.mmu.wait32(gprs[cpu.PC]);
+            mmu.store16(addr, gprs[rd]);
+            mmu.wait(addr);
+            mmu.wait32(gprs[cpu.PC]);
         };
     }
 
@@ -1723,8 +1773,9 @@ export default class ARMCoreArm implements ICompilerArm {
     constructSUB(rd: number, rn: number, shiftOp: ICPUOperator, condOp: IConditionOperator): IInstruction {
         const cpu = this.cpu;
         const gprs = cpu.gprs;
+        const mmu = this.getMMU();
         return function () {
-            cpu.mmu.waitPrefetch32(gprs[cpu.PC]);
+            mmu.waitPrefetch32(gprs[cpu.PC]);
             if (condOp && !condOp()) {
                 return;
             }
@@ -1743,8 +1794,9 @@ export default class ARMCoreArm implements ICompilerArm {
     constructSUBS(rd: number, rn: number, shiftOp: ICPUOperator, condOp: IConditionOperator): IInstruction {
         const cpu = this.cpu;
         const gprs = cpu.gprs;
+        const mmu = this.getMMU();
         return function () {
-            cpu.mmu.waitPrefetch32(gprs[cpu.PC]);
+            mmu.waitPrefetch32(gprs[cpu.PC]);
             if (condOp && !condOp()) {
                 return;
             }
@@ -1771,14 +1823,20 @@ export default class ARMCoreArm implements ICompilerArm {
     constructSWI(immediate: number, condOp: IConditionOperator): IInstruction {
         const cpu = this.cpu;
         const gprs = cpu.gprs;
+        const mmu = this.getMMU();
+        const irq = this.getIRQ();
         return function () {
             if (condOp && !condOp()) {
-                cpu.mmu.waitPrefetch32(gprs[cpu.PC]);
+                mmu.waitPrefetch32(gprs[cpu.PC]);
                 return;
             }
-            (cpu.irq as IIRQ).swi32(immediate);
-            cpu.mmu.waitPrefetch32(gprs[cpu.PC]);
+            irq.swi32(immediate);
+            mmu.waitPrefetch32(gprs[cpu.PC]);
         };
+    }
+
+    private getIRQ():IIRQ{
+        return this.cpu.core.getIRQ() as IIRQ;
     }
 
     /**
@@ -1791,15 +1849,16 @@ export default class ARMCoreArm implements ICompilerArm {
     constructSWP(rd: number, rn: number, rm: number, condOp: IConditionOperator): IInstruction {
         const cpu = this.cpu;
         const gprs = cpu.gprs;
+        const mmu = this.getMMU();
         return function () {
-            cpu.mmu.waitPrefetch32(gprs[cpu.PC]);
+            mmu.waitPrefetch32(gprs[cpu.PC]);
             if (condOp && !condOp()) {
                 return;
             }
-            cpu.mmu.wait32(gprs[rn]);
-            cpu.mmu.wait32(gprs[rn]);
-            var d = cpu.mmu.load32(gprs[rn]);
-            cpu.mmu.store32(gprs[rn], gprs[rm]);
+            mmu.wait32(gprs[rn]);
+            mmu.wait32(gprs[rn]);
+            var d = mmu.load32(gprs[rn]);
+            mmu.store32(gprs[rn], gprs[rm]);
             gprs[rd] = d;
             ++cpu.cycles;
         }
@@ -1815,15 +1874,16 @@ export default class ARMCoreArm implements ICompilerArm {
     constructSWPB(rd: number, rn: number, rm: number, condOp: IConditionOperator): IInstruction {
         const cpu = this.cpu;
         const gprs = cpu.gprs;
+        const mmu = this.getMMU();
         return function () {
-            cpu.mmu.waitPrefetch32(gprs[cpu.PC]);
+            mmu.waitPrefetch32(gprs[cpu.PC]);
             if (condOp && !condOp()) {
                 return;
             }
-            cpu.mmu.wait(gprs[rn]);
-            cpu.mmu.wait(gprs[rn]);
-            const d = cpu.mmu.load8(gprs[rn]);
-            cpu.mmu.store8(gprs[rn], gprs[rm]);
+            mmu.wait(gprs[rn]);
+            mmu.wait(gprs[rn]);
+            const d = mmu.load8(gprs[rn]);
+            mmu.store8(gprs[rn], gprs[rm]);
             gprs[rd] = d;
             ++cpu.cycles;
         }
@@ -1839,8 +1899,9 @@ export default class ARMCoreArm implements ICompilerArm {
     constructTEQ(rd: number, rn: number, shiftOp: ICPUOperator, condOp: IConditionOperator): IInstruction {
         const cpu = this.cpu;
         const gprs = cpu.gprs;
+        const mmu = this.getMMU();
         return function () {
-            cpu.mmu.waitPrefetch32(gprs[cpu.PC]);
+            mmu.waitPrefetch32(gprs[cpu.PC]);
             if (condOp && !condOp()) {
                 return;
             }
@@ -1862,8 +1923,9 @@ export default class ARMCoreArm implements ICompilerArm {
     constructTST(rd: number, rn: number, shiftOp: ICPUOperator, condOp: IConditionOperator): IInstruction {
         const cpu = this.cpu;
         const gprs = cpu.gprs;
+        const mmu = this.getMMU();
         return function () {
-            cpu.mmu.waitPrefetch32(gprs[cpu.PC]);
+            mmu.waitPrefetch32(gprs[cpu.PC]);
             if (condOp && !condOp()) {
                 return;
             }
@@ -1886,13 +1948,14 @@ export default class ARMCoreArm implements ICompilerArm {
     constructUMLAL(rd: number, rn: number, rs: number, rm: number, condOp: IConditionOperator): IInstruction {
         const cpu = this.cpu;
         const gprs = cpu.gprs;
+        const mmu = this.getMMU();
         return function () {
-            cpu.mmu.waitPrefetch32(gprs[cpu.PC]);
+            mmu.waitPrefetch32(gprs[cpu.PC]);
             if (condOp && !condOp()) {
                 return;
             }
             cpu.cycles += 2;
-            cpu.mmu.waitMul(rs);
+            mmu.waitMul(rs);
             const hi = ((gprs[rm] & 0xFFFF0000) >>> 0) * (gprs[rs] >>> 0);
             const lo = (gprs[rm] & 0x0000FFFF) * (gprs[rs] >>> 0);
             const carry = (gprs[rn] >>> 0) + hi + lo;
@@ -1912,13 +1975,14 @@ export default class ARMCoreArm implements ICompilerArm {
     constructUMLALS(rd: number, rn: number, rs: number, rm: number, condOp: IConditionOperator): IInstruction {
         const cpu = this.cpu;
         const gprs = cpu.gprs;
+        const mmu = this.getMMU();
         return function () {
-            cpu.mmu.waitPrefetch32(gprs[cpu.PC]);
+            mmu.waitPrefetch32(gprs[cpu.PC]);
             if (condOp && !condOp()) {
                 return;
             }
             cpu.cycles += 2;
-            cpu.mmu.waitMul(rs);
+            mmu.waitMul(rs);
             const hi = ((gprs[rm] & 0xFFFF0000) >>> 0) * (gprs[rs] >>> 0);
             const lo = (gprs[rm] & 0x0000FFFF) * (gprs[rs] >>> 0);
             const carry = (gprs[rn] >>> 0) + hi + lo;
@@ -1941,13 +2005,14 @@ export default class ARMCoreArm implements ICompilerArm {
     constructUMULL(rd: number, rn: number, rs: number, rm: number, condOp: IConditionOperator): IInstruction {
         const cpu = this.cpu;
         const gprs = cpu.gprs;
+        const mmu = this.getMMU();
         return function () {
-            cpu.mmu.waitPrefetch32(gprs[cpu.PC]);
+            mmu.waitPrefetch32(gprs[cpu.PC]);
             if (condOp && !condOp()) {
                 return;
             }
             ++cpu.cycles;
-            cpu.mmu.waitMul(gprs[rs]);
+            mmu.waitMul(gprs[rs]);
             const hi = ((gprs[rm] & 0xFFFF0000) >>> 0) * (gprs[rs] >>> 0);
             const lo = ((gprs[rm] & 0x0000FFFF) >>> 0) * (gprs[rs] >>> 0);
             gprs[rn] = ((hi & 0xFFFFFFFF) + (lo & 0xFFFFFFFF)) & 0xFFFFFFFF;
@@ -1966,13 +2031,14 @@ export default class ARMCoreArm implements ICompilerArm {
     constructUMULLS(rd: number, rn: number, rs: number, rm: number, condOp: IConditionOperator): IInstruction {
         const cpu = this.cpu;
         const gprs = cpu.gprs;
+        const mmu = this.getMMU();
         return function () {
-            cpu.mmu.waitPrefetch32(gprs[cpu.PC]);
+            mmu.waitPrefetch32(gprs[cpu.PC]);
             if (condOp && !condOp()) {
                 return;
             }
             ++cpu.cycles;
-            cpu.mmu.waitMul(gprs[rs]);
+            mmu.waitMul(gprs[rs]);
             const hi = ((gprs[rm] & 0xFFFF0000) >>> 0) * (gprs[rs] >>> 0);
             const lo = ((gprs[rm] & 0x0000FFFF) >>> 0) * (gprs[rs] >>> 0);
             gprs[rn] = ((hi & 0xFFFFFFFF) + (lo & 0xFFFFFFFF)) & 0xFFFFFFFF;
